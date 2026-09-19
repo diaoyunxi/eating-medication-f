@@ -326,11 +326,23 @@ def capture_photo(filename=None):
     """使用系统 fswebcam 命令拍照，不依赖 cv2"""
     if filename is None:
         filename = f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
-    path = os.path.join(PHOTO_DIR, filename)
+    # 路径安全校验：防止目录遍历和文件名注入
+    safe_filename = os.path.basename(filename)
+    if not safe_filename or safe_filename != filename:
+        log(f"拍照失败: 文件名不合法 {filename}", "ERROR")
+        return None
+    path = os.path.join(PHOTO_DIR, safe_filename)
+    # 确保路径在 PHOTO_DIR 内
+    real_path = os.path.realpath(path)
+    if not real_path.startswith(os.path.realpath(PHOTO_DIR)):
+        log(f"拍照失败: 路径逃逸 {path}", "ERROR")
+        return None
     try:
-        # 优先使用 fswebcam（Linux 下 USB/CSI 摄像头通用）
-        cmd = f"fswebcam -r 640x480 --no-banner {path}"
-        r = subprocess.run(cmd, shell=True, capture_output=True, timeout=10)
+        # 优先使用 fswebcam（Linux 下 USB/CSI 摄像头通用），使用列表形式防止注入
+        r = subprocess.run(
+            ["fswebcam", "-r", "640x480", "--no-banner", path],
+            capture_output=True, timeout=10
+        )
         if r.returncode == 0 and os.path.exists(path) and os.path.getsize(path) > 0:
             return path
         log(f"fswebcam 失败: {r.stderr.decode('utf-8', errors='ignore')}", "WARNING")
@@ -894,7 +906,7 @@ def init_hardware():
             log(f"GUI 初始化失败，将以无界面模式运行: {e}", "WARNING")
             gui = None
         # 检测摄像头是否可用（通过 fswebcam 能否执行）
-        r = subprocess.run("which fswebcam", shell=True, capture_output=True)
+        import shutil; fswebcam_exists = shutil.which("fswebcam") is not None
         state["camera_available"] = r.returncode == 0
         log("硬件初始化完成")
     except Exception as e:
