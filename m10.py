@@ -21,6 +21,9 @@ import threading
 import datetime
 import subprocess
 import traceback
+import logging
+
+logger = logging.getLogger(__name__)
 import urllib.request
 import urllib.error
 from pathlib import Path
