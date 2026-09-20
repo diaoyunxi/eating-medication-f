@@ -48,8 +48,8 @@ LOG_FILE = "/root/medication_local.log"
 PHOTO_DIR = "/root/medication_photos"
 QUEUE_FILE = "/root/medication_log_queue.json"
 
-WIFI_SSID = "TP-LINK_5G_36DB"
-WIFI_PASSWORD = "15756491077"
+WIFI_SSID = os.environ.get("WIFI_SSID", "TP-LINK_5G_36DB")
+WIFI_PASSWORD = os.environ.get("WIFI_PASSWORD", "")
 
 # 硬件引脚
 BUZZER_PIN = Pin.P25      # 蜂鸣器
@@ -150,7 +150,7 @@ def connect_wifi(ssid, password):
         return False
     try:
         cmd = f'nmcli dev wifi connect "{ssid}" password "{password}"'
-        r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+        r = subprocess.run(["nmcli", "dev", "wifi", "connect", ssid, "password", password], shell=False, capture_output=True, text=True, timeout=30)
         ok = r.returncode == 0 or "successfully" in r.stdout.lower() or "已激活" in r.stdout
         log(f"WiFi 连接: {r.stdout.strip()}")
         return ok
@@ -170,7 +170,7 @@ def check_network():
 def detect_volume_control():
     """自动检测可用的 ALSA 音量控制，优先 USB 声卡的 Speaker/Headphone/PCM"""
     try:
-        r = subprocess.run("aplay -l", shell=True, capture_output=True, text=True, timeout=5)
+        r = subprocess.run(["aplay", "-l"], shell=False, capture_output=True, text=True, timeout=5)
         cards_output = r.stdout
         usb_card = None
         for line in cards_output.splitlines():
@@ -185,7 +185,8 @@ def detect_volume_control():
 
         def control_exists(card_arg, ctrl):
             cmd = f"amixer {card_arg} scontrols" if card_arg else "amixer scontrols"
-            rr = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=3)
+            parts = cmd.split()
+            rr = subprocess.run(parts, shell=False, capture_output=True, text=True, timeout=3)
             return ctrl.lower() in rr.stdout.lower()
 
         if usb_card is not None:
@@ -211,7 +212,8 @@ def set_system_volume(vol):
     if not _volume_control_cmd:
         _volume_control_cmd = VOLUME_CONTROL if VOLUME_CONTROL else detect_volume_control()
     try:
-        subprocess.run(f"amixer {_volume_control_cmd} {vol}%", shell=True, timeout=5)
+        cmd_parts = ["amixer"] + _volume_control_cmd.split() + [f"{vol}%"]
+        subprocess.run(cmd_parts, shell=False, timeout=5)
     except Exception as e:
         log(f"设置音量失败: {e}", "ERROR")
 
@@ -330,7 +332,7 @@ def capture_photo(filename=None):
     try:
         # 优先使用 fswebcam（Linux 下 USB/CSI 摄像头通用）
         cmd = f"fswebcam -r 640x480 --no-banner {path}"
-        r = subprocess.run(cmd, shell=True, capture_output=True, timeout=10)
+        r = subprocess.run(cmd.split(), shell=False, capture_output=True, timeout=10)
         if r.returncode == 0 and os.path.exists(path) and os.path.getsize(path) > 0:
             return path
         log(f"fswebcam 失败: {r.stderr.decode('utf-8', errors='ignore')}", "WARNING")
@@ -894,7 +896,7 @@ def init_hardware():
             log(f"GUI 初始化失败，将以无界面模式运行: {e}", "WARNING")
             gui = None
         # 检测摄像头是否可用（通过 fswebcam 能否执行）
-        r = subprocess.run("which fswebcam", shell=True, capture_output=True)
+        r = subprocess.run(["which", "fswebcam"], shell=False, capture_output=True)
         state["camera_available"] = r.returncode == 0
         log("硬件初始化完成")
     except Exception as e:
