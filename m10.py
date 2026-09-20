@@ -48,8 +48,29 @@ LOG_FILE = "/root/medication_local.log"
 PHOTO_DIR = "/root/medication_photos"
 QUEUE_FILE = "/root/medication_log_queue.json"
 
-WIFI_SSID = "TP-LINK_5G_36DB"
-WIFI_PASSWORD = "15756491077"
+# WiFi 配置文件路径（格式: JSON {"ssid": "...", "password": "..."}）
+WIFI_CONFIG_FILE = "/root/wifi_config.json"
+
+def _load_wifi_config():
+    """从配置文件加载 WiFi 凭据，避免硬编码"""
+    global WIFI_SSID, WIFI_PASSWORD
+    try:
+        import json
+        with open(WIFI_CONFIG_FILE, "r") as f:
+            cfg = json.load(f)
+            WIFI_SSID = cfg.get("ssid", "")
+            WIFI_PASSWORD = cfg.get("password", "")
+    except FileNotFoundError:
+        print(f"[WARN] WiFi 配置文件不存在: {WIFI_CONFIG_FILE}")
+        print(f"  请创建 {WIFI_CONFIG_FILE}，内容格式: {{\"ssid\": \"YOUR_SSID\", \"password\": \"YOUR_PASS\"}}")
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"[WARN] WiFi 配置文件读取失败: {e}")
+
+_load_wifi_config()
+
+# WiFi 配置从文件读取，避免硬编码凭据
+WIFI_SSID = ""
+WIFI_PASSWORD = ""
 
 # 硬件引脚
 BUZZER_PIN = Pin.P25      # 蜂鸣器
