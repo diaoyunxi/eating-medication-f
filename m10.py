@@ -349,20 +349,41 @@ def image_to_base64(path):
 
 # ============== 网络通信（仅使用 urllib） ==============
 
-def http_request(url, payload=None, timeout=15):
-    """封装 urllib，payload 为 dict 时 POST，否则 GET"""
-    try:
-        headers = {"Content-Type": "application/json"}
-        data = None
-        if payload is not None:
-            data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-        req = urllib.request.Request(url, data=data, headers=headers, method="POST" if data else "GET")
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            body = resp.read().decode("utf-8")
-            return json.loads(body) if body else None
-    except Exception as e:
-        log(f"HTTP 请求失败 {url}: {e}", "ERROR")
+def http_request(url, payload=None, timeout=15, max_retries=2):
+    """封装 urllib，payload 为 dict 时 POST，否则 GET。
+
+    安全措施：
+    - 仅允许 http/https scheme，拒绝 file:// 等防止 SSRF
+    - 支持自动重试（指数退避），处理瞬时网络故障
+    """
+    from urllib.parse import urlparse
+
+    # SSRF 防护：校验 URL scheme 仅允许 http/https
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        log(f"HTTP 请求被拒绝：不允许的 URL scheme '{parsed.scheme}'，仅支持 http/https", "WARN")
         return None
+
+    headers = {"Content-Type": "application/json"}
+    data = None
+    if payload is not None:
+        data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+
+    for attempt in range(max_retries + 1):
+        try:
+            req = urllib.request.Request(url, data=data, headers=headers, method="POST" if data else "GET")
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                body = resp.read().decode("utf-8")
+                return json.loads(body) if body else None
+        except Exception as e:
+            if attempt < max_retries:
+                wait = 2 ** attempt  # 指数退避：1s, 2s
+                log(f"HTTP 请求失败 (重试 {attempt + 1}/{max_retries}) {url}: {e}，{wait}s 后重试", "WARN")
+                import time
+                time.sleep(wait)
+            else:
+                log(f"HTTP 请求最终失败 {url}: {e}", "ERROR")
+                return None
 
 
 def register_device():
