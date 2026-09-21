@@ -149,8 +149,10 @@ def connect_wifi(ssid, password):
     if not ssid:
         return False
     try:
-        cmd = f'nmcli dev wifi connect "{ssid}" password "{password}"'
-        r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+        r = subprocess.run(
+            ["nmcli", "dev", "wifi", "connect", ssid, "password", password],
+            capture_output=True, text=True, timeout=30
+        )
         ok = r.returncode == 0 or "successfully" in r.stdout.lower() or "已激活" in r.stdout
         log(f"WiFi 连接: {r.stdout.strip()}")
         return ok
@@ -211,7 +213,12 @@ def set_system_volume(vol):
     if not _volume_control_cmd:
         _volume_control_cmd = VOLUME_CONTROL if VOLUME_CONTROL else detect_volume_control()
     try:
-        subprocess.run(f"amixer {_volume_control_cmd} {vol}%", shell=True, timeout=5)
+        # 校验 vol 为数值，防止命令注入
+        vol_int = int(vol)
+        subprocess.run(
+            ["amixer", "set", _volume_control_cmd, f"{vol_int}%"],
+            timeout=5
+        )
     except Exception as e:
         log(f"设置音量失败: {e}", "ERROR")
 
@@ -329,8 +336,10 @@ def capture_photo(filename=None):
     path = os.path.join(PHOTO_DIR, filename)
     try:
         # 优先使用 fswebcam（Linux 下 USB/CSI 摄像头通用）
-        cmd = f"fswebcam -r 640x480 --no-banner {path}"
-        r = subprocess.run(cmd, shell=True, capture_output=True, timeout=10)
+        r = subprocess.run(
+            ["fswebcam", "-r", "640x480", "--no-banner", path],
+            capture_output=True, timeout=10
+        )
         if r.returncode == 0 and os.path.exists(path) and os.path.getsize(path) > 0:
             return path
         log(f"fswebcam 失败: {r.stderr.decode('utf-8', errors='ignore')}", "WARNING")
