@@ -350,8 +350,18 @@ def image_to_base64(path):
 # ============== 网络通信（仅使用 urllib） ==============
 
 def http_request(url, payload=None, timeout=15):
-    """封装 urllib，payload 为 dict 时 POST，否则 GET"""
+    """封装 urllib，payload 为 dict 时 POST，否则 GET
+
+    安全措施：
+    - URL scheme 白名单校验，仅允许 http/https，防止 SSRF (CWE-918)
+    """
     try:
+        # URL scheme 白名单校验，防止 file:// / ftp:// 等非预期协议
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            log(f"HTTP 请求被阻止: 不允许的 URL scheme '{parsed.scheme}'", "ERROR")
+            return None
         headers = {"Content-Type": "application/json"}
         data = None
         if payload is not None:
