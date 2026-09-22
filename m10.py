@@ -48,7 +48,7 @@ LOG_FILE = "/root/medication_local.log"
 PHOTO_DIR = "/root/medication_photos"
 QUEUE_FILE = "/root/medication_log_queue.json"
 
-WIFI_SSID = "TP-LINK_5G_36DB"
+WIFI_SSID = os.environ.get("MEDICATION_WIFI_SSID", "TP-LINK_5G_36DB")
 WIFI_PASSWORD = os.environ.get("MEDICATION_WIFI_PASSWORD", "")
 
 # 硬件引脚
