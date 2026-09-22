@@ -20,6 +20,7 @@ import queue
 import threading
 import datetime
 import subprocess
+import shlex
 import traceback
 import urllib.request
 import urllib.error
@@ -184,22 +185,22 @@ def detect_volume_control():
         controls = ["Speaker", "Headphone", "PCM", "Master", "Digital"]
 
         def control_exists(card_arg, ctrl):
-            cmd = f"amixer {card_arg} scontrols" if card_arg else "amixer scontrols"
-            rr = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=3)
+            cmd = ["amixer"] + (shlex.split(card_arg) if card_arg else []) + ["scontrols"]
+            rr = subprocess.run(cmd, shell=False, capture_output=True, text=True, timeout=3)
             return ctrl.lower() in rr.stdout.lower()
 
         if usb_card is not None:
             card_arg = f"-c {usb_card}"
             for ctrl in controls:
                 if control_exists(card_arg, ctrl):
-                    return f"{card_arg} set {ctrl}"
+                    return shlex.split(card_arg) + ["set", ctrl]
 
         for ctrl in controls:
             if control_exists("", ctrl):
-                return f"set {ctrl}"
+                return ["set", ctrl]
     except Exception as e:
         log(f"检测音量控制失败: {e}", "WARNING")
-    return "set PCM"
+    return ["set", "PCM"]
 
 
 _volume_control_cmd = None
@@ -209,9 +210,16 @@ def set_system_volume(vol):
     """设置 USB 扬声器系统音量（amixer），自动检测并缓存可用的 ALSA 控制"""
     global _volume_control_cmd
     if not _volume_control_cmd:
-        _volume_control_cmd = VOLUME_CONTROL if VOLUME_CONTROL else detect_volume_control()
+        if VOLUME_CONTROL:
+            _volume_control_cmd = shlex.split(VOLUME_CONTROL)
+        else:
+            _volume_control_cmd = detect_volume_control()
     try:
-        subprocess.run(f"amixer {_volume_control_cmd} {vol}%", shell=True, timeout=5)
+        # _volume_control_cmd is a list of args from detect_volume_control()
+        subprocess.run(
+            ["amixer"] + _volume_control_cmd + [f"{vol_int}%"],
+            shell=False, timeout=5
+        )
     except Exception as e:
         log(f"设置音量失败: {e}", "ERROR")
 
