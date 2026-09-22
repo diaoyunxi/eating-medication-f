@@ -31,7 +31,9 @@ from pinpong.board import Board, Pin
 from dfrobot_huskylensv2 import *
 
 # ============== 配置区 ==============
-BASE_URL = "https://my-website.ccwu.cc/eating-medication/family"
+# 安全修复：BASE_URL 改为从环境变量读取，避免硬编码外部域名 (CWE-798)
+# 部署时通过 M10_BASE_URL 环境变量覆盖，默认值保持向后兼容
+BASE_URL = os.environ.get("M10_BASE_URL", "https://my-website.ccwu.cc/eating-medication/family")
 PAIR_CODE = "275527387791320"
 DEVICE_ID = "m10_" + PAIR_CODE
 
@@ -161,7 +163,8 @@ def connect_wifi(ssid, password):
 
 def check_network():
     try:
-        urllib.request.urlopen("https://my-website.ccwu.cc", timeout=5)
+        # 使用 BASE_URL 进行连通性检查，而非硬编码域名
+        urllib.request.urlopen(BASE_URL, timeout=5)
         return True
     except Exception:
         return False
