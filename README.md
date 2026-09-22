@@ -21,7 +21,7 @@
 | 蜂鸣器提示 | 优先使用 `pinpong` 板载蜂鸣器音效（BA_DING），回退到数字引脚控制 |
 | 离线日志队列 | 网络断开时服药日志写入本地队列，恢复后自动回传服务端 |
 | 余量监测 | 每 6 小时计算药品剩余天数，低于阈值语音告警并查询补货信息 |
-| AI 药品识别 | 通过 `fswebcam` 拍照 + `pytesseract` OCR 识别药品名，并查询服务端药品库 |
+| AI 药品识别 | 通过 `fswebcam` 拍照 + `pytesseract` OCR 识别药品名，并查询服务端药品库（**可选**，缺失时自动跳过） |
 
 ## 硬件接线
 
@@ -134,7 +134,7 @@ m10.py
 | `POST /api/refill/query` | 查询补货最优价格 |
 | `POST /api/emergency/notify` | 紧急呼叫通知家属 |
 
-> ⚠️ **API 迁移说明**：当前 `m10.py` 使用旧版接口路径，与 `openapi.json` 定义的新版 `/api/v1/public/device/*` 接口存在差异，后续版本将逐步切换。
+> ⚠️ **API 迁移说明**：当前 `m10.py` 使用旧版接口路径（如 `/api/device/register`），与 `openapi.json` 定义的新版 `/api/v1/public/device/*` 接口存在差异。旧版接口目前仍可正常使用，后续版本将逐步切换到新版路径。
 
 ## 版本与更新
 
