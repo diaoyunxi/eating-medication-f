@@ -20,6 +20,7 @@ import queue
 import threading
 import datetime
 import subprocess
+import shlex
 import traceback
 import urllib.request
 import urllib.error
@@ -145,12 +146,17 @@ def save_config(cfg):
 
 
 def connect_wifi(ssid, password):
-    """连接 WiFi，返回是否成功"""
+    """连接 WiFi，返回是否成功
+
+    安全修复：使用 shell=False + 参数列表，防止 SSID/密码中包含特殊字符导致命令注入 (CWE-78)。
+    """
     if not ssid:
         return False
     try:
-        cmd = f'nmcli dev wifi connect "{ssid}" password "{password}"'
-        r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+        args = ["nmcli", "dev", "wifi", "connect", ssid]
+        if password:
+            args.extend(["password", password])
+        r = subprocess.run(args, shell=False, capture_output=True, text=True, timeout=30)
         ok = r.returncode == 0 or "successfully" in r.stdout.lower() or "已激活" in r.stdout
         log(f"WiFi 连接: {r.stdout.strip()}")
         return ok
@@ -170,7 +176,7 @@ def check_network():
 def detect_volume_control():
     """自动检测可用的 ALSA 音量控制，优先 USB 声卡的 Speaker/Headphone/PCM"""
     try:
-        r = subprocess.run("aplay -l", shell=True, capture_output=True, text=True, timeout=5)
+        r = subprocess.run(["aplay", "-l"], shell=False, capture_output=True, text=True, timeout=5)
         cards_output = r.stdout
         usb_card = None
         for line in cards_output.splitlines():
@@ -184,22 +190,22 @@ def detect_volume_control():
         controls = ["Speaker", "Headphone", "PCM", "Master", "Digital"]
 
         def control_exists(card_arg, ctrl):
-            cmd = f"amixer {card_arg} scontrols" if card_arg else "amixer scontrols"
-            rr = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=3)
+            cmd = ["amixer"] + (shlex.split(card_arg) if card_arg else []) + ["scontrols"]
+            rr = subprocess.run(cmd, shell=False, capture_output=True, text=True, timeout=3)
             return ctrl.lower() in rr.stdout.lower()
 
         if usb_card is not None:
             card_arg = f"-c {usb_card}"
             for ctrl in controls:
                 if control_exists(card_arg, ctrl):
-                    return f"{card_arg} set {ctrl}"
+                    return shlex.split(card_arg) + ["set", ctrl]
 
         for ctrl in controls:
             if control_exists("", ctrl):
-                return f"set {ctrl}"
+                return ["set", ctrl]
     except Exception as e:
         log(f"检测音量控制失败: {e}", "WARNING")
-    return "set PCM"
+    return ["set", "PCM"]
 
 
 _volume_control_cmd = None
@@ -209,9 +215,16 @@ def set_system_volume(vol):
     """设置 USB 扬声器系统音量（amixer），自动检测并缓存可用的 ALSA 控制"""
     global _volume_control_cmd
     if not _volume_control_cmd:
-        _volume_control_cmd = VOLUME_CONTROL if VOLUME_CONTROL else detect_volume_control()
+        if VOLUME_CONTROL:
+            _volume_control_cmd = shlex.split(VOLUME_CONTROL)
+        else:
+            _volume_control_cmd = detect_volume_control()
     try:
-        subprocess.run(f"amixer {_volume_control_cmd} {vol}%", shell=True, timeout=5)
+        # _volume_control_cmd is a list of args from detect_volume_control()
+        subprocess.run(
+            ["amixer"] + _volume_control_cmd + [f"{vol_int}%"],
+            shell=False, timeout=5
+        )
     except Exception as e:
         log(f"设置音量失败: {e}", "ERROR")
 
@@ -329,8 +342,9 @@ def capture_photo(filename=None):
     path = os.path.join(PHOTO_DIR, filename)
     try:
         # 优先使用 fswebcam（Linux 下 USB/CSI 摄像头通用）
-        cmd = f"fswebcam -r 640x480 --no-banner {path}"
-        r = subprocess.run(cmd, shell=True, capture_output=True, timeout=10)
+        # 安全修复：使用 shell=False + 参数列表，防止路径中包含特殊字符导致命令注入 (CWE-78)
+        args = ["fswebcam", "-r", "640x480", "--no-banner", path]
+        r = subprocess.run(args, shell=False, capture_output=True, timeout=10)
         if r.returncode == 0 and os.path.exists(path) and os.path.getsize(path) > 0:
             return path
         log(f"fswebcam 失败: {r.stderr.decode('utf-8', errors='ignore')}", "WARNING")
@@ -894,7 +908,7 @@ def init_hardware():
             log(f"GUI 初始化失败，将以无界面模式运行: {e}", "WARNING")
             gui = None
         # 检测摄像头是否可用（通过 fswebcam 能否执行）
-        r = subprocess.run("which fswebcam", shell=True, capture_output=True)
+        r = subprocess.run(["which", "fswebcam"], shell=False, capture_output=True)
         state["camera_available"] = r.returncode == 0
         log("硬件初始化完成")
     except Exception as e:
