@@ -36,12 +36,12 @@ PAIR_CODE = "275527387791320"
 DEVICE_ID = "m10_" + PAIR_CODE
 
 # API 端点（兼容 BASE_URL 及其子页面）
-API_REGISTER = f"{BASE_URL}/api/device/register"
-API_REMINDERS = f"{BASE_URL}/api/reminders"
-API_LOGS = f"{BASE_URL}/api/logs"
-API_DRUG_QUERY = f"{BASE_URL}/api/drug/query"
-API_REFILL = f"{BASE_URL}/api/refill/query"
-API_EMERGENCY = f"{BASE_URL}/api/emergency/notify"
+API_REGISTER = f"{BASE_URL}/api/v1/public/device/register"
+API_REMINDERS = f"{BASE_URL}/api/v1/public/device/schedule"
+API_LOGS = f"{BASE_URL}/api/v1/public/device/message"
+API_DRUG_QUERY = f"{BASE_URL}/api/v1/public/device/medication_plan"
+API_REFILL = f"{BASE_URL}/api/v1/public/device/records"
+API_EMERGENCY = f"{BASE_URL}/api/v1/public/device/message"
 
 CONFIG_FILE = "/root/medication_config.json"
 LOG_FILE = "/root/medication_local.log"
@@ -381,7 +381,7 @@ def register_device():
 
 
 def sync_reminders():
-    url = f"{API_REMINDERS}?device_id={DEVICE_ID}&pair_code={PAIR_CODE}"
+    url = f"{API_REMINDERS}/{DEVICE_ID}"
     resp = http_request(url)
     if resp and resp.get("code") == 0:
         with lock:
