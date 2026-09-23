@@ -538,7 +538,14 @@ def trigger_alert(reminder):
 
 
 def alert_loop(tid):
-    while tid in state["active_alerts"]:
+    """提醒循环：使用 Event 替代 time.sleep 阻塞，使确认服药可立即停止提醒"""
+    stop_event = threading.Event()
+    # 将 stop_event 存入 state，供 confirm_take 调用
+    with lock:
+        if tid in state["active_alerts"]:
+            state["active_alerts"][tid]["stop_event"] = stop_event
+
+    while tid in state["active_alerts"] and not stop_event.is_set():
         info = state["active_alerts"][tid]
         volume = info["volume"]
         reminder = info["reminder"]
@@ -547,9 +554,9 @@ def alert_loop(tid):
         msg = f"吃{drug}{dose}"
         buzzer_beep(times=3, duration=0.3)
         tts_speak(msg, volume=volume)
-        # 每 10 分钟增大音量
-        time.sleep(SNOOZE_MINUTES * 60)
-        if tid in state["active_alerts"]:
+        # 每 10 分钟增大音量，但可被 stop_event 立即中断
+        stop_event.wait(timeout=SNOOZE_MINUTES * 60)
+        if tid in state["active_alerts"] and not stop_event.is_set():
             info["volume"] = min(volume + VOLUME_STEP, VOLUME_MAX)
 
 
@@ -559,6 +566,10 @@ def confirm_take(tid=None):
     if state.get("camera_available"):
         photo_path = capture_photo(filename=f"take_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
     if tid and tid in state["active_alerts"]:
+        # 立即通知 alert_loop 线程停止，不再阻塞等待 sleep 结束
+        stop_event = state["active_alerts"][tid].get("stop_event")
+        if stop_event:
+            stop_event.set()
         reminder = state["active_alerts"][tid]["reminder"]
         del state["active_alerts"][tid]
     else:
