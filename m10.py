@@ -48,8 +48,8 @@ LOG_FILE = "/root/medication_local.log"
 PHOTO_DIR = "/root/medication_photos"
 QUEUE_FILE = "/root/medication_log_queue.json"
 
-WIFI_SSID = "TP-LINK_5G_36DB"
-WIFI_PASSWORD = "15756491077"
+WIFI_SSID = os.environ.get("WIFI_SSID", "")
+WIFI_PASSWORD = os.environ.get("WIFI_PASSWORD", "")
 
 # 硬件引脚
 BUZZER_PIN = Pin.P25      # 蜂鸣器
@@ -131,7 +131,7 @@ def load_config():
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception as e:
+        except (OSError, json.JSONDecodeError) as e:
             log(f"读取配置失败: {e}", "ERROR")
     return {}
 
@@ -140,7 +140,7 @@ def save_config(cfg):
     try:
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(cfg, f, ensure_ascii=False, indent=2)
-    except Exception as e:
+    except OSError as e:
         log(f"保存配置失败: {e}", "ERROR")
 
 
@@ -149,12 +149,17 @@ def connect_wifi(ssid, password):
     if not ssid:
         return False
     try:
-        cmd = f'nmcli dev wifi connect "{ssid}" password "{password}"'
-        r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+        r = subprocess.run(
+            ["nmcli", "dev", "wifi", "connect", ssid, "password", password],
+            shell=False, capture_output=True, text=True, timeout=30
+        )
         ok = r.returncode == 0 or "successfully" in r.stdout.lower() or "已激活" in r.stdout
         log(f"WiFi 连接: {r.stdout.strip()}")
         return ok
-    except Exception as e:
+    except subprocess.TimeoutExpired:
+        log("WiFi 连接超时", "ERROR")
+        return False
+    except OSError as e:
         log(f"WiFi 连接异常: {e}", "ERROR")
         return False
 
@@ -298,8 +303,8 @@ def stop_speech():
     if _speech_engine:
         try:
             _speech_engine.stop()
-        except Exception:
-            pass
+        except RuntimeError as e:
+            log(f"停止 TTS 引擎异常: {e}", "WARNING")
     log("TTS 服务已停止")
 
 
