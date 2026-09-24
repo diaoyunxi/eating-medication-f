@@ -49,7 +49,7 @@ PHOTO_DIR = "/root/medication_photos"
 QUEUE_FILE = "/root/medication_log_queue.json"
 
 WIFI_SSID = "TP-LINK_5G_36DB"
-WIFI_PASSWORD = "15756491077"
+PASSWORD = os.environ.get("PASSWORD", "")  # Was hardcoded
 
 # 硬件引脚
 BUZZER_PIN = Pin.P25      # 蜂鸣器
