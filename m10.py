@@ -538,8 +538,11 @@ def trigger_alert(reminder):
 
 
 def alert_loop(tid):
-    while tid in state["active_alerts"]:
-        info = state["active_alerts"][tid]
+    while True:
+        # 使用 get() 防止 confirm_take 并发删除 tid 时触发 KeyError (CWE-362)
+        info = state["active_alerts"].get(tid)
+        if info is None:
+            break
         volume = info["volume"]
         reminder = info["reminder"]
         drug = reminder.get("medicine_name", "药品")
@@ -549,7 +552,9 @@ def alert_loop(tid):
         tts_speak(msg, volume=volume)
         # 每 10 分钟增大音量
         time.sleep(SNOOZE_MINUTES * 60)
-        if tid in state["active_alerts"]:
+        # 再次安全获取，防止 sleep 期间被 confirm_take 删除
+        info = state["active_alerts"].get(tid)
+        if info is not None:
             info["volume"] = min(volume + VOLUME_STEP, VOLUME_MAX)
 
 
