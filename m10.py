@@ -73,7 +73,8 @@ TTS_RATE = 200
 CHECK_INTERVAL = 1
 
 # 固定服药提醒时间（每天触发，HH:MM 格式）
-FIXED_REMINDER_TIMES = ["09:00", "13:00", "17:00"]
+# 默认固定提醒时间（仅作为离线降级回退，优先使用服务端配置）
+FIXED_REMINDER_TIMES_DEFAULT = ["09:00", "13:00", "17:00"]
 
 # 人脸识别触发吃药提醒的 ID（HuskylensV2 识别到该 ID 时自动启动提醒）
 FACE_TRIGGER_ID = 1
@@ -96,6 +97,7 @@ state = {
     "active_alerts": {},      # 当前活跃的提醒 {reminder_id: info}
     "current_volume": VOLUME_INITIAL,
     "camera_available": False,
+    "fixed_reminder_times": FIXED_REMINDER_TIMES_DEFAULT,  # 当前生效的固定提醒时间（服务端配置优先）
     "triggered_fixed_times": set(),  # 当天已触发的固定提醒时间，避免重复触发
     "current_date": None,     # 当天日期字符串 YYYY-MM-DD，用于跨天重置触发记录
     "current_face_id": None,  # 当前识别到的人脸 ID（None 表示未识别到）
@@ -388,6 +390,11 @@ def sync_reminders():
             state["reminders"] = resp.get("data", {}).get("reminders", [])
             state["medicines"] = resp.get("data", {}).get("medicines", [])
             state["last_sync"] = datetime.datetime.now().isoformat()
+            # 从服务端获取可配置的固定提醒时间，未配置时保持默认值
+            server_times = resp.get("data", {}).get("fixed_reminder_times")
+            if server_times and isinstance(server_times, list):
+                state["fixed_reminder_times"] = server_times
+                log(f"使用服务端固定提醒时间: {server_times}")
         log(f"同步提醒: {len(state['reminders'])} 条")
         return True
     return False
@@ -480,10 +487,14 @@ def reset_fixed_trigger_if_new_day():
 
 
 def check_fixed_reminders():
-    """检查固定服药提醒时间（9:00 / 13:00 / 17:00），每天每个时间点仅触发一次"""
+    """检查固定服药提醒时间，每天每个时间点仅触发一次。
+    
+    优先使用服务端配置的提醒时间（通过 sync_reminders 同步），
+    离线时降级为 FIXED_REMINDER_TIMES_DEFAULT 默认值。
+    """
     reset_fixed_trigger_if_new_day()
     now_str = datetime.datetime.now().strftime("%H:%M")
-    for t in FIXED_REMINDER_TIMES:
+    for t in state.get("fixed_reminder_times", FIXED_REMINDER_TIMES_DEFAULT):
         if t == now_str and t not in state["triggered_fixed_times"]:
             state["triggered_fixed_times"].add(t)
             reminder = {
