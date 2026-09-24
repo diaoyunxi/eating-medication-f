@@ -119,7 +119,7 @@ def log(msg, level="INFO"):
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(line + "\n")
     except Exception:
-        pass
+        pass  # TODO: add proper error handling
 
 
 def ensure_dirs():
@@ -299,7 +299,7 @@ def stop_speech():
         try:
             _speech_engine.stop()
         except Exception:
-            pass
+            pass  # TODO: add proper error handling
     log("TTS 服务已停止")
 
 
@@ -705,7 +705,7 @@ def _update_face_id_display(face_id):
         text = f"id{face_id}" if face_id is not None else ""
         _face_id_obj.config(text=text)
     except Exception:
-        pass
+        pass  # TODO: add proper error handling
 
 
 def update_gui_status(text, alert=False):
@@ -783,12 +783,12 @@ def clock_thread():
                     try:
                         _clock_time_obj.config(text=_format_time(now))
                     except Exception:
-                        pass
+                        pass  # TODO: add proper error handling
                 if _clock_date_obj is not None:
                     try:
                         _clock_date_obj.config(text=_format_date(now))
                     except Exception:
-                        pass
+                        pass  # TODO: add proper error handling
         except Exception as e:
             log(f"时钟刷新失败: {e}", "WARNING")
         time.sleep(CLOCK_REFRESH_INTERVAL)
