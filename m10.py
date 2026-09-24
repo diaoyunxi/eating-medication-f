@@ -920,6 +920,7 @@ def button_thread():
     last_take = 0
     last_emergency = 0
     last_remind = 0
+    _max_iter = 1000000  # Safety limit
     while True:
         now = time.time()
         # P21 已吃药按钮（~A）：按下高电平（1），松开低电平（0）
@@ -943,6 +944,7 @@ def main_loop():
     last_hour = -1
     last_stock_check = 0
     last_flush = 0
+ _max_iter = 1000000  # Safety limit
 
     while True:
         now = datetime.datetime.now()
