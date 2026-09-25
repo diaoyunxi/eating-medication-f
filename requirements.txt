@@ -1,0 +1,13 @@
+# UniHiker M10 智能服药提醒终端 - Python 依赖
+#
+# 注意: unihiker / pinpong / dfrobot_huskylensv2 为行空板专用库，
+# 通常通过板载系统预装，而非 pip 安装。
+# 如需在非行空板环境运行测试，可安装以下 pip 可获取的依赖：
+
+# 标准库以外的运行时依赖（pip 可安装）
+pyttsx3>=2.90  # TTS 语音合成（USB 扬声器输出）
+
+# 以下库为行空板 M10 专用，需通过板载系统获取：
+# unihiker       - 行空板 GUI 库（预装在 M10 系统镜像中）
+# pinpong        - 行空板硬件控制库（预装在 M10 系统镜像中）
+# dfrobot_huskylensv2 - HuskyLens V2 摄像头驱动（预装在 M10 系统镜像中）
