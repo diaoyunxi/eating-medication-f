@@ -308,7 +308,7 @@ def buzzer_beep(times=1, duration=0.2):
     try:
         if hasattr(buzzer, "play"):
             # 使用 pinpong 板载蜂鸣器音效（BA_DING）
-            for i in range(times):
+            for _ in range(times):
                 buzzer.play(buzzer.BA_DING, buzzer.Once)
                 time.sleep(duration)
         else:
@@ -1008,7 +1008,7 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         log("用户中断")
-    except Exception as e:
+    except Exception:
         log(f"主程序异常: {traceback.format_exc()}", "CRITICAL")
     finally:
         stop_speech()
