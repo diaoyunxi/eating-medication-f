@@ -579,6 +579,7 @@ def confirm_take(tid=None):
 def update_stock(medicine_id, used_count):
     if not medicine_id:
         return
+    low_stock_medicine = None
     with lock:
         for m in state["medicines"]:
             if m.get("id") == medicine_id:
@@ -588,8 +589,11 @@ def update_stock(medicine_id, used_count):
                 save_config(cfg)
                 threshold = m.get("threshold", 5) * m.get("daily_count", 1)
                 if m["remaining"] < threshold:
-                    threading.Thread(target=low_stock_alert, args=(m,), daemon=True).start()
+                    low_stock_medicine = dict(m)  # 拷贝一份，避免持有锁时启动线程
                 break
+    # 在锁外启动线程，防止 low_stock_alert 内部访问 state 时产生竞态
+    if low_stock_medicine is not None:
+        threading.Thread(target=low_stock_alert, args=(low_stock_medicine,), daemon=True).start()
 
 
 def low_stock_alert(medicine):
@@ -645,6 +649,7 @@ def recognize_medicine():
 # ============== 余量监测 ==============
 
 def calculate_remaining_days():
+    low_stock_items = []
     with lock:
         for m in state["medicines"]:
             total = m.get("remaining", 0)
@@ -656,7 +661,10 @@ def calculate_remaining_days():
             else:
                 m["remaining_days"] = 999
             if m["remaining_days"] < 5:
-                threading.Thread(target=low_stock_alert, args=(m,), daemon=True).start()
+                low_stock_items.append(dict(m))  # 拷贝，避免持有锁时启动线程
+    # 在锁外启动线程，防止 low_stock_alert 内部访问 state 时产生竞态
+    for medicine in low_stock_items:
+        threading.Thread(target=low_stock_alert, args=(medicine,), daemon=True).start()
 
 
 # ============== GUI 更新 ==============
