@@ -44,6 +44,7 @@ API_REFILL = f"{BASE_URL}/api/refill/query"
 API_EMERGENCY = f"{BASE_URL}/api/emergency/notify"
 
 CONFIG_FILE = "/root/medication_config.json"
+STATE_FILE = "/root/medication_state.json"
 LOG_FILE = "/root/medication_local.log"
 PHOTO_DIR = "/root/medication_photos"
 QUEUE_FILE = "/root/medication_log_queue.json"
@@ -142,6 +143,46 @@ def save_config(cfg):
             json.dump(cfg, f, ensure_ascii=False, indent=2)
     except Exception as e:
         log(f"保存配置失败: {e}", "ERROR")
+
+
+def save_state():
+    """将 active_alerts 持久化到磁盘，进程崩溃后可恢复"""
+    try:
+        serializable = {}
+        for tid, info in state["active_alerts"].items():
+            serializable[tid] = {
+                "started_at": info["started_at"].isoformat() if isinstance(info.get("started_at"), datetime.datetime) else str(info.get("started_at", "")),
+                "volume": info.get("volume", VOLUME_INITIAL),
+                "reminder": info.get("reminder", {}),
+            }
+        with open(STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(serializable, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        log(f"保存状态失败: {e}", "ERROR")
+
+
+def load_state():
+    """启动时从磁盘恢复 active_alerts"""
+    if not os.path.exists(STATE_FILE):
+        return
+    try:
+        with open(STATE_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        for tid, info in data.items():
+            started_at = info.get("started_at", "")
+            try:
+                started_at = datetime.datetime.fromisoformat(started_at)
+            except (ValueError, TypeError):
+                started_at = datetime.datetime.now()
+            state["active_alerts"][tid] = {
+                "started_at": started_at,
+                "volume": info.get("volume", VOLUME_INITIAL),
+                "reminder": info.get("reminder", {}),
+            }
+        if data:
+            log(f"恢复了 {len(data)} 个活跃提醒")
+    except Exception as e:
+        log(f"恢复状态失败: {e}", "ERROR")
 
 
 def connect_wifi(ssid, password):
@@ -534,6 +575,7 @@ def trigger_alert(reminder):
     log(f"触发提醒: {call_msg}")
     update_gui_reminder(name, drug, dose)
     tts_speak(call_msg)
+    save_state()
     threading.Thread(target=alert_loop, args=(tid,), daemon=True).start()
 
 
@@ -561,6 +603,7 @@ def confirm_take(tid=None):
     if tid and tid in state["active_alerts"]:
         reminder = state["active_alerts"][tid]["reminder"]
         del state["active_alerts"][tid]
+        save_state()
     else:
         reminder = {}
 
@@ -990,6 +1033,7 @@ def main():
     init_speech()
     update_gui_status("正在连接网络...")
     init_network()
+    load_state()  # 恢复崩溃前的活跃提醒
 
     threading.Thread(target=button_thread, daemon=True).start()
     # 启动主界面时钟刷新线程（每秒更新年月日时分秒）
