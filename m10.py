@@ -473,19 +473,23 @@ def notify_emergency(contact="120"):
 def reset_fixed_trigger_if_new_day():
     """跨天时清空当日已触发固定提醒记录，避免第二天漏触发"""
     today = datetime.datetime.now().strftime("%Y-%m-%d")
-    if state["current_date"] != today:
-        state["current_date"] = today
-        state["triggered_fixed_times"] = set()
-        log(f"日期切换到 {today}，已重置固定提醒触发记录")
+    with lock:
+        if state["current_date"] != today:
+            state["current_date"] = today
+            state["triggered_fixed_times"] = set()
+            log(f"日期切换到 {today}，已重置固定提醒触发记录")
 
 
 def check_fixed_reminders():
     """检查固定服药提醒时间（9:00 / 13:00 / 17:00），每天每个时间点仅触发一次"""
     reset_fixed_trigger_if_new_day()
     now_str = datetime.datetime.now().strftime("%H:%M")
+    with lock:
+        triggered = set(state["triggered_fixed_times"])
     for t in FIXED_REMINDER_TIMES:
-        if t == now_str and t not in state["triggered_fixed_times"]:
-            state["triggered_fixed_times"].add(t)
+        if t == now_str and t not in triggered:
+            with lock:
+                state["triggered_fixed_times"].add(t)
             reminder = {
                 "id": f"fixed_{t}",
                 "user_name": "老人",
@@ -812,12 +816,15 @@ def face_thread():
         except Exception as e:
             log(f"人脸识别读取失败: {e}", "WARNING")
         # 更新状态与屏幕右下角显示
-        state["current_face_id"] = face_id
+        with lock:
+            state["current_face_id"] = face_id
         _update_face_id_display(face_id)
         # 识别到指定 ID 时触发吃药提醒（冷却时间内不重复触发）
         now = time.time()
         if face_id == FACE_TRIGGER_ID and now - last_trigger_time > FACE_TRIGGER_COOLDOWN:
-            if not state["active_alerts"]:
+            with lock:
+                has_alerts = bool(state["active_alerts"])
+            if not has_alerts:
                 last_trigger_time = now
                 log(f"识别到 id{face_id}，触发吃药提醒")
                 trigger_alert({
@@ -836,8 +843,12 @@ def face_thread():
 def on_take_button_pressed():
     """P21 已吃药按钮（~A）：仅在吃药提醒时确认已吃药"""
     log("已吃药按钮被按下")
-    if state["active_alerts"]:
-        tid = next(iter(state["active_alerts"]))
+    with lock:
+        if state["active_alerts"]:
+            tid = next(iter(state["active_alerts"]))
+        else:
+            tid = None
+    if tid is not None:
         confirm_take(tid)
 
 
