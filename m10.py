@@ -414,13 +414,13 @@ def upload_log(event_type, detail, photo_path=None):
 
 def queue_local_log(payload):
     try:
-        queue = []
+        pending_logs = []
         if os.path.exists(QUEUE_FILE):
             with open(QUEUE_FILE, "r", encoding="utf-8") as f:
-                queue = json.load(f)
-        queue.append(payload)
+                pending_logs = json.load(f)
+        pending_logs.append(payload)
         with open(QUEUE_FILE, "w", encoding="utf-8") as f:
-            json.dump(queue, f, ensure_ascii=False)
+            json.dump(pending_logs, f, ensure_ascii=False)
     except Exception as e:
         log(f"本地日志队列写入失败: {e}", "ERROR")
 
@@ -430,15 +430,15 @@ def flush_local_logs():
         return
     try:
         with open(QUEUE_FILE, "r", encoding="utf-8") as f:
-            queue = json.load(f)
+            pending_logs = json.load(f)
         remain = []
-        for payload in queue:
+        for payload in pending_logs:
             resp = http_request(API_LOGS, payload)
             if not (resp and resp.get("code") == 0):
                 remain.append(payload)
         with open(QUEUE_FILE, "w", encoding="utf-8") as f:
             json.dump(remain, f, ensure_ascii=False)
-        log(f"刷新本地日志: 成功 {len(queue) - len(remain)}, 剩余 {len(remain)}")
+        log(f"刷新本地日志: 成功 {len(pending_logs) - len(remain)}, 剩余 {len(remain)}")
     except Exception as e:
         log(f"刷新本地日志失败: {e}", "ERROR")
 
