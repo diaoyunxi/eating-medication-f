@@ -161,7 +161,11 @@ def connect_wifi(ssid, password):
 
 def check_network():
     try:
-        urllib.request.urlopen("https://my-website.ccwu.cc", timeout=5)
+        resp = urllib.request.urlopen("https://my-website.ccwu.cc", timeout=5)
+        try:
+            resp.read(1)  # 读取少量数据确认连通性
+        finally:
+            resp.close()
         return True
     except Exception:
         return False
@@ -624,8 +628,15 @@ def recognize_medicine():
     try:
         import pytesseract
         from PIL import Image
-        img = Image.open(photo_path).convert("L")
-        text = pytesseract.image_to_string(img, lang="chi_sim+eng")
+        raw_img = Image.open(photo_path)
+        try:
+            img = raw_img.convert("L")
+        finally:
+            raw_img.close()
+        try:
+            text = pytesseract.image_to_string(img, lang="chi_sim+eng")
+        finally:
+            img.close()
         log(f"OCR 结果: {text.strip()}")
     except Exception as e:
         log(f"OCR 失败或未安装 tesseract: {e}", "WARNING")
