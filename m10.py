@@ -558,11 +558,13 @@ def confirm_take(tid=None):
     photo_path = None
     if state.get("camera_available"):
         photo_path = capture_photo(filename=f"take_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
-    if tid and tid in state["active_alerts"]:
-        reminder = state["active_alerts"][tid]["reminder"]
-        del state["active_alerts"][tid]
-    else:
-        reminder = {}
+    # 在锁保护下读取和删除 active_alerts，防止与 alert_loop 和 trigger_alert 并发冲突
+    reminder = {}
+    if tid:
+        with lock:
+            if tid in state["active_alerts"]:
+                reminder = state["active_alerts"][tid]["reminder"]
+                del state["active_alerts"][tid]
 
     detail = {
         "action": "confirm_take",
