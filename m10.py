@@ -428,16 +428,22 @@ def queue_local_log(payload):
 def flush_local_logs():
     if not os.path.exists(QUEUE_FILE):
         return
+    import fcntl
     try:
-        with open(QUEUE_FILE, "r", encoding="utf-8") as f:
-            queue = json.load(f)
-        remain = []
-        for payload in queue:
-            resp = http_request(API_LOGS, payload)
-            if not (resp and resp.get("code") == 0):
-                remain.append(payload)
-        with open(QUEUE_FILE, "w", encoding="utf-8") as f:
-            json.dump(remain, f, ensure_ascii=False)
+        # 使用文件锁防止 flush 和 queue 并发写入导致日志丢失
+        lock_file = QUEUE_FILE + ".lock"
+        with open(lock_file, "w") as lf:
+            fcntl.flock(lf, fcntl.LOCK_EX)
+            with open(QUEUE_FILE, "r", encoding="utf-8") as f:
+                queue = json.load(f)
+            remain = []
+            for payload in queue:
+                resp = http_request(API_LOGS, payload)
+                if not (resp and resp.get("code") == 0):
+                    remain.append(payload)
+            with open(QUEUE_FILE, "w", encoding="utf-8") as f:
+                json.dump(remain, f, ensure_ascii=False)
+            fcntl.flock(lf, fcntl.LOCK_UN)
         log(f"刷新本地日志: 成功 {len(queue) - len(remain)}, 剩余 {len(remain)}")
     except Exception as e:
         log(f"刷新本地日志失败: {e}", "ERROR")
