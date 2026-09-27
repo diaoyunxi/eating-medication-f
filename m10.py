@@ -431,14 +431,26 @@ def flush_local_logs():
     try:
         with open(QUEUE_FILE, "r", encoding="utf-8") as f:
             queue = json.load(f)
+        if not queue:
+            return
         remain = []
+        success_count = 0
         for payload in queue:
-            resp = http_request(API_LOGS, payload)
-            if not (resp and resp.get("code") == 0):
+            try:
+                resp = http_request(API_LOGS, payload)
+                if resp and resp.get("code") == 0:
+                    success_count += 1
+                else:
+                    remain.append(payload)
+            except Exception:
+                # 上传异常时保留该条目，不影响后续条目处理
                 remain.append(payload)
-        with open(QUEUE_FILE, "w", encoding="utf-8") as f:
+        # 原子写入：先写临时文件再替换，防止写入中途断电导致文件损坏
+        tmp_file = QUEUE_FILE + ".tmp"
+        with open(tmp_file, "w", encoding="utf-8") as f:
             json.dump(remain, f, ensure_ascii=False)
-        log(f"刷新本地日志: 成功 {len(queue) - len(remain)}, 剩余 {len(remain)}")
+        os.replace(tmp_file, QUEUE_FILE)
+        log(f"刷新本地日志: 成功 {success_count}, 剩余 {len(remain)}")
     except Exception as e:
         log(f"刷新本地日志失败: {e}", "ERROR")
 
