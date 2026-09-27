@@ -503,7 +503,11 @@ def check_reminders():
     now_str = now.strftime("%H:%M")
     weekday = now.weekday() + 1
 
-    for r in state["reminders"]:
+    # 在锁内拷贝提醒列表，防止 sync_reminders 并发修改导致迭代异常
+    with lock:
+        reminders_copy = list(state["reminders"])
+
+    for r in reminders_copy:
         tid = r.get("id")
         times = r.get("times", [])
         days = r.get("days", [1, 2, 3, 4, 5, 6, 7])
