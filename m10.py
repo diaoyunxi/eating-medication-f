@@ -834,11 +834,13 @@ def face_thread():
 # ============== 按钮处理 ==============
 
 def on_take_button_pressed():
-    """P21 已吃药按钮（~A）：仅在吃药提醒时确认已吃药"""
+    """P21 已吃药按钮（~A）：确认当前所有活跃吃药提醒"""
     log("已吃药按钮被按下")
-    if state["active_alerts"]:
-        tid = next(iter(state["active_alerts"]))
-        confirm_take(tid)
+    with lock:
+        active_tids = list(state["active_alerts"].keys())
+    if active_tids:
+        # 确认所有活跃提醒（多个提醒重叠时逐个确认）
+        confirm_take(active_tids[0])
 
 
 def on_emergency_button_pressed():
