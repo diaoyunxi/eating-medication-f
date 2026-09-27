@@ -850,15 +850,18 @@ def on_emergency_button_pressed():
 def on_remind_button_pressed():
     """P27 B键：直接启动吃药提醒"""
     log("提醒按钮被按下，直接启动吃药提醒")
-    test_reminder = {
-        "id": "test_reminder",
+    # 修复：使用带时间戳的唯一 ID，防止多次按压 B 键时因 ID 相同
+    # 被 trigger_alert 的 active_alerts 检查静默忽略（CWE-682）
+    unique_id = f"manual_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    manual_reminder = {
+        "id": unique_id,
         "user_name": "老人",
         "medicine_name": "测试药品",
         "dose": "1粒",
         "medicine_id": None,
         "dose_count": 1,
     }
-    trigger_alert(test_reminder)
+    trigger_alert(manual_reminder)
 
 
 # ============== 初始化与主循环 ==============
