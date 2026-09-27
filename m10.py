@@ -413,12 +413,19 @@ def upload_log(event_type, detail, photo_path=None):
 
 
 def queue_local_log(payload):
+    # 最大队列条目数，防止长期离线时文件无限增长占满存储
+    MAX_QUEUE_SIZE = 1000
     try:
         queue = []
         if os.path.exists(QUEUE_FILE):
             with open(QUEUE_FILE, "r", encoding="utf-8") as f:
                 queue = json.load(f)
         queue.append(payload)
+        # 超出上限时丢弃最旧的条目
+        if len(queue) > MAX_QUEUE_SIZE:
+            dropped = len(queue) - MAX_QUEUE_SIZE
+            queue = queue[-MAX_QUEUE_SIZE:]
+            log(f"本地日志队列超出上限，丢弃最旧的 {dropped} 条", "WARNING")
         with open(QUEUE_FILE, "w", encoding="utf-8") as f:
             json.dump(queue, f, ensure_ascii=False)
     except Exception as e:
