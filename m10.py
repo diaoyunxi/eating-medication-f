@@ -126,11 +126,16 @@ def ensure_dirs():
     Path(PHOTO_DIR).mkdir(parents=True, exist_ok=True)
 
 
+# 配置文件读写锁：防止 load_config → 修改 → save_config 序列被并发打断（TOCTOU）
+_config_lock = threading.Lock()
+
+
 def load_config():
     if os.path.exists(CONFIG_FILE):
         try:
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+            with _config_lock:
+                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                    return json.load(f)
         except Exception as e:
             log(f"读取配置失败: {e}", "ERROR")
     return {}
@@ -138,8 +143,9 @@ def load_config():
 
 def save_config(cfg):
     try:
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, ensure_ascii=False, indent=2)
+        with _config_lock:
+            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                json.dump(cfg, f, ensure_ascii=False, indent=2)
     except Exception as e:
         log(f"保存配置失败: {e}", "ERROR")
 
