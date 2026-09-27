@@ -264,13 +264,15 @@ def _speak_worker():
                         _speech_engine.runAndWait()
                 except Exception as e:
                     log(f"pyttsx3 播报失败: {e}", "ERROR")
-                    # 尝试重新初始化引擎
-                    try:
-                        import pyttsx3
-                        _speech_engine = pyttsx3.init()
-                        _speech_engine.setProperty('rate', TTS_RATE)
-                    except Exception:
-                        _speech_engine = None
+                    # 尝试重新初始化引擎（在锁内，防止竞态）
+                    with _speech_lock:
+                        try:
+                            import pyttsx3
+                            _speech_engine = pyttsx3.init()
+                            _speech_engine.setProperty('rate', TTS_RATE)
+                        except Exception:
+                            _speech_engine = None
+
             else:
                 # 回退到 espeak
                 try:
