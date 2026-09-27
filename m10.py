@@ -10,6 +10,7 @@ UniHiker M10 智能服药提醒终端主程序
 """
 
 import os
+import sys
 # 必须在导入 tkinter/unihiker 之前强制设置 DISPLAY（SSH 远程运行时需要）
 os.environ["DISPLAY"] = os.environ.get("DISPLAY") or ":0"
 
@@ -984,6 +985,10 @@ def main_loop():
 
 
 def main():
+    import signal
+    # 注册 SIGTERM 处理，确保 systemd 停止服务时能优雅关闭
+    signal.signal(signal.SIGTERM, lambda sig, frame: sys.exit(0))
+
     ensure_dirs()
     log("程序启动")
     init_hardware()
