@@ -292,7 +292,7 @@ def tts_speak(text, volume=None):
 
 
 def stop_speech():
-    """停止 TTS 服务"""
+    """停止 TTS 服务并等待工作线程完成"""
     _speech_stop_event.set()
     _speak_queue.put(None)
     if _speech_engine:
@@ -300,6 +300,9 @@ def stop_speech():
             _speech_engine.stop()
         except Exception:
             pass
+    # 等待工作线程完成当前播报（最多 5 秒），防止退出时播报被截断
+    if _speech_thread and _speech_thread.is_alive():
+        _speech_thread.join(timeout=5)
     log("TTS 服务已停止")
 
 
