@@ -203,13 +203,15 @@ def detect_volume_control():
 
 
 _volume_control_cmd = None
+_volume_control_lock = threading.Lock()
 
 
 def set_system_volume(vol):
     """设置 USB 扬声器系统音量（amixer），自动检测并缓存可用的 ALSA 控制"""
     global _volume_control_cmd
-    if not _volume_control_cmd:
-        _volume_control_cmd = VOLUME_CONTROL if VOLUME_CONTROL else detect_volume_control()
+    with _volume_control_lock:
+        if not _volume_control_cmd:
+            _volume_control_cmd = VOLUME_CONTROL if VOLUME_CONTROL else detect_volume_control()
     try:
         subprocess.run(f"amixer {_volume_control_cmd} {vol}%", shell=True, timeout=5)
     except Exception as e:
