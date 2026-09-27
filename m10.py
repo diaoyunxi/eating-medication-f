@@ -539,18 +539,26 @@ def trigger_alert(reminder):
 
 def alert_loop(tid):
     while tid in state["active_alerts"]:
-        info = state["active_alerts"][tid]
-        volume = info["volume"]
-        reminder = info["reminder"]
-        drug = reminder.get("medicine_name", "药品")
-        dose = reminder.get("dose", "")
-        msg = f"吃{drug}{dose}"
-        buzzer_beep(times=3, duration=0.3)
-        tts_speak(msg, volume=volume)
-        # 每 10 分钟增大音量
-        time.sleep(SNOOZE_MINUTES * 60)
-        if tid in state["active_alerts"]:
-            info["volume"] = min(volume + VOLUME_STEP, VOLUME_MAX)
+        try:
+            with lock:
+                if tid not in state["active_alerts"]:
+                    break
+                info = state["active_alerts"][tid]
+                volume = info["volume"]
+                reminder = info["reminder"]
+            drug = reminder.get("medicine_name", "药品")
+            dose = reminder.get("dose", "")
+            msg = f"吃{drug}{dose}"
+            buzzer_beep(times=3, duration=0.3)
+            tts_speak(msg, volume=volume)
+            # 每 10 分钟增大音量
+            time.sleep(SNOOZE_MINUTES * 60)
+            with lock:
+                if tid in state["active_alerts"]:
+                    state["active_alerts"][tid]["volume"] = min(volume + VOLUME_STEP, VOLUME_MAX)
+        except KeyError:
+            # confirm_take 已在另一个线程删除了此提醒，正常退出
+            break
 
 
 def confirm_take(tid=None):
