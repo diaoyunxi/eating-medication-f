@@ -140,6 +140,7 @@ def save_config(cfg):
     try:
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(cfg, f, ensure_ascii=False, indent=2)
+        os.chmod(CONFIG_FILE, 0o600)  # 仅属主可读写，防止其他用户读取敏感配置
     except Exception as e:
         log(f"保存配置失败: {e}", "ERROR")
 
