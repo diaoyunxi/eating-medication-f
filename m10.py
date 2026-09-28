@@ -503,14 +503,17 @@ def check_reminders():
     now_str = now.strftime("%H:%M")
     weekday = now.weekday() + 1
 
-    for r in state["reminders"]:
+    with lock:
+        reminders_snapshot = list(state["reminders"])
+        active_snapshot = set(state["active_alerts"].keys())
+    for r in reminders_snapshot:
         tid = r.get("id")
         times = r.get("times", [])
         days = r.get("days", [1, 2, 3, 4, 5, 6, 7])
         if weekday not in days:
             continue
         for t in times:
-            if t == now_str and tid not in state["active_alerts"]:
+            if t == now_str and tid not in active_snapshot:
                 trigger_alert(r)
 
 
@@ -538,10 +541,13 @@ def trigger_alert(reminder):
 
 
 def alert_loop(tid):
-    while tid in state["active_alerts"]:
-        info = state["active_alerts"][tid]
-        volume = info["volume"]
-        reminder = info["reminder"]
+    while True:
+        with lock:
+            info = state["active_alerts"].get(tid)
+            if info is None:
+                break
+            volume = info["volume"]
+            reminder = info["reminder"]
         drug = reminder.get("medicine_name", "药品")
         dose = reminder.get("dose", "")
         msg = f"吃{drug}{dose}"
@@ -549,8 +555,10 @@ def alert_loop(tid):
         tts_speak(msg, volume=volume)
         # 每 10 分钟增大音量
         time.sleep(SNOOZE_MINUTES * 60)
-        if tid in state["active_alerts"]:
-            info["volume"] = min(volume + VOLUME_STEP, VOLUME_MAX)
+        with lock:
+            info = state["active_alerts"].get(tid)
+            if info is not None:
+                info["volume"] = min(volume + VOLUME_STEP, VOLUME_MAX)
 
 
 def confirm_take(tid=None):
