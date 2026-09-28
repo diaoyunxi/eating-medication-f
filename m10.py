@@ -43,10 +43,11 @@ API_DRUG_QUERY = f"{BASE_URL}/api/drug/query"
 API_REFILL = f"{BASE_URL}/api/refill/query"
 API_EMERGENCY = f"{BASE_URL}/api/emergency/notify"
 
-CONFIG_FILE = "/root/medication_config.json"
-LOG_FILE = "/root/medication_local.log"
-PHOTO_DIR = "/root/medication_photos"
-QUEUE_FILE = "/root/medication_log_queue.json"
+MEDICATION_DATA_DIR = os.environ.get("MEDICATION_DATA_DIR", "/root")
+CONFIG_FILE = os.path.join(MEDICATION_DATA_DIR, "medication_config.json")
+LOG_FILE = os.path.join(MEDICATION_DATA_DIR, "medication_local.log")
+PHOTO_DIR = os.path.join(MEDICATION_DATA_DIR, "medication_photos")
+QUEUE_FILE = os.path.join(MEDICATION_DATA_DIR, "medication_log_queue.json")
 
 WIFI_SSID = "TP-LINK_5G_36DB"
 WIFI_PASSWORD = "15756491077"
