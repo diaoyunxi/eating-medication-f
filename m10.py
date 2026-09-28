@@ -943,6 +943,7 @@ def main_loop():
     last_hour = -1
     last_stock_check = 0
     last_flush = 0
+    last_network_check = 0
 
     while True:
         now = datetime.datetime.now()
@@ -971,8 +972,10 @@ def main_loop():
             if state["online"]:
                 flush_local_logs()
 
-        # 定期检查网络恢复
-        if not state["online"] and now.second % 30 == 0:
+        # 定期（每 30 秒）检查网络恢复，使用计时器替代 now.second % 30
+        # 原实现依赖秒数取模，循环体耗时不稳定时可能跳过检查窗口 (CWE-682)
+        if not state["online"] and time.time() - last_network_check > 30:
+            last_network_check = time.time()
             if check_network():
                 state["online"] = True
                 register_device()
