@@ -349,20 +349,23 @@ def image_to_base64(path):
 
 # ============== 网络通信（仅使用 urllib） ==============
 
-def http_request(url, payload=None, timeout=15):
-    """封装 urllib，payload 为 dict 时 POST，否则 GET"""
-    try:
-        headers = {"Content-Type": "application/json"}
-        data = None
-        if payload is not None:
-            data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-        req = urllib.request.Request(url, data=data, headers=headers, method="POST" if data else "GET")
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            body = resp.read().decode("utf-8")
-            return json.loads(body) if body else None
-    except Exception as e:
-        log(f"HTTP 请求失败 {url}: {e}", "ERROR")
-        return None
+def http_request(url, payload=None, timeout=15, max_retries=3):
+    """封装 urllib，payload 为 dict 时 POST，否则 GET，支持自动重试"""
+    headers = {"Content-Type": "application/json"}
+    data = None
+    if payload is not None:
+        data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    for attempt in range(1, max_retries + 1):
+        try:
+            req = urllib.request.Request(url, data=data, headers=headers, method="POST" if data else "GET")
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                body = resp.read().decode("utf-8")
+                return json.loads(body) if body else None
+        except Exception as e:
+            log(f"HTTP 请求失败 {url} (尝试 {attempt}/{max_retries}): {e}", "ERROR")
+            if attempt < max_retries:
+                time.sleep(2 * attempt)  # 指数退避
+    return None
 
 
 def register_device():
