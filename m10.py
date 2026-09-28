@@ -473,10 +473,11 @@ def notify_emergency(contact="120"):
 def reset_fixed_trigger_if_new_day():
     """跨天时清空当日已触发固定提醒记录，避免第二天漏触发"""
     today = datetime.datetime.now().strftime("%Y-%m-%d")
-    if state["current_date"] != today:
-        state["current_date"] = today
-        state["triggered_fixed_times"] = set()
-        log(f"日期切换到 {today}，已重置固定提醒触发记录")
+    with lock:
+        if state["current_date"] != today:
+            state["current_date"] = today
+            state["triggered_fixed_times"] = set()
+            log(f"日期切换到 {today}，已重置固定提醒触发记录")
 
 
 def check_fixed_reminders():
@@ -484,8 +485,9 @@ def check_fixed_reminders():
     reset_fixed_trigger_if_new_day()
     now_str = datetime.datetime.now().strftime("%H:%M")
     for t in FIXED_REMINDER_TIMES:
-        if t == now_str and t not in state["triggered_fixed_times"]:
-            state["triggered_fixed_times"].add(t)
+        with lock:
+            if t == now_str and t not in state["triggered_fixed_times"]:
+                state["triggered_fixed_times"].add(t)
             reminder = {
                 "id": f"fixed_{t}",
                 "user_name": "老人",
