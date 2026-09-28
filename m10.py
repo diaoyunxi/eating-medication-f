@@ -983,6 +983,23 @@ def main_loop():
         time.sleep(CHECK_INTERVAL)
 
 
+def _graceful_shutdown(signum, frame):
+    """SIGTERM 信号处理器：优雅关闭，确保状态持久化和线程清理"""
+    import signal
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)  # 防止重复触发
+    print("[main] 收到 SIGTERM，正在优雅关闭...")
+    try:
+        save_config()
+    except Exception:
+        pass
+    try:
+        flush_local_logs()
+    except Exception:
+        pass
+    print("[main] 优雅关闭完成")
+    sys.exit(0)
+
+
 def main():
     ensure_dirs()
     log("程序启动")
