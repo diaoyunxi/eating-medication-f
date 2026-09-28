@@ -547,8 +547,12 @@ def alert_loop(tid):
         msg = f"吃{drug}{dose}"
         buzzer_beep(times=3, duration=0.3)
         tts_speak(msg, volume=volume)
-        # 每 10 分钟增大音量
-        time.sleep(SNOOZE_MINUTES * 60)
+        # 每 SNOOZE_MINUTES 分钟增大音量，但用 1 秒间隔轮询
+        # 使 confirm_take 删除 tid 后能立即退出循环
+        for _ in range(SNOOZE_MINUTES * 60):
+            if tid not in state["active_alerts"]:
+                return
+            time.sleep(1)
         if tid in state["active_alerts"]:
             info["volume"] = min(volume + VOLUME_STEP, VOLUME_MAX)
 
