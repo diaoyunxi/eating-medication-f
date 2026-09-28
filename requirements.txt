@@ -1,0 +1,11 @@
+# eating-medication-f 运行时依赖
+# 硬件平台依赖（行空板 / UNIHIKER）
+unihiker>=0.1.0
+pinpong>=0.1.0
+dfrobot-huskylensv2>=0.1.0
+
+# 语音合成
+pyttsx3>=2.90
+
+# 可选：AI 对话（如果使用本地模型）
+# dashscope>=1.0.0
