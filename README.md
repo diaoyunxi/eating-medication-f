@@ -1,7 +1,7 @@
 # M10 智能服药提醒终端（单文件版）
 
 > UniHiker 行空板 M10 智能药盒配套程序，与 [eating-medication](https://github.com/diaoyunxi/eating-medication) 网页端协同工作。
-> 本仓库内为**单文件实现**（`m10.py`），与 `elderly_assistant/` 多文件版并列，互不依赖。
+> 本仓库内为**单文件实现**（`m10.py`），与 [`eating-medication`](https://github.com/diaoyunxi/eating-medication) 仓库的 `elderly_assistant/` 多文件版并列，互不依赖。
 
 ## 项目简介
 
