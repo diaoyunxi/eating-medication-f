@@ -558,11 +558,13 @@ def confirm_take(tid=None):
     photo_path = None
     if state.get("camera_available"):
         photo_path = capture_photo(filename=f"take_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
-    if tid and tid in state["active_alerts"]:
-        reminder = state["active_alerts"][tid]["reminder"]
-        del state["active_alerts"][tid]
-    else:
-        reminder = {}
+    # 加锁保护 active_alerts 字典操作，防止与 alert_loop/button_thread 竞态 (CWE-362)
+    with lock:
+        if tid and tid in state["active_alerts"]:
+            reminder = state["active_alerts"][tid]["reminder"]
+            del state["active_alerts"][tid]
+        else:
+            reminder = {}
 
     detail = {
         "action": "confirm_take",
@@ -836,8 +838,13 @@ def face_thread():
 def on_take_button_pressed():
     """P21 已吃药按钮（~A）：仅在吃药提醒时确认已吃药"""
     log("已吃药按钮被按下")
-    if state["active_alerts"]:
-        tid = next(iter(state["active_alerts"]))
+    # 加锁保护 active_alerts 字典遍历，防止与 alert_loop 竞态 (CWE-362)
+    with lock:
+        if state["active_alerts"]:
+            tid = next(iter(state["active_alerts"]))
+        else:
+            tid = None
+    if tid is not None:
         confirm_take(tid)
 
 
