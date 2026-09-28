@@ -119,7 +119,7 @@ def log(msg, level="INFO"):
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(line + "\n")
     except Exception:
-        pass
+        pass  # 日志写入失败时静默：避免 log() 递归调用
 
 
 def ensure_dirs():
@@ -298,7 +298,8 @@ def stop_speech():
     if _speech_engine:
         try:
             _speech_engine.stop()
-        except Exception:
+        except Exception as e:
+            log(f"异常被静默捕获: {e}", "WARNING")
             pass
     log("TTS 服务已停止")
 
@@ -343,7 +344,8 @@ def image_to_base64(path):
     try:
         with open(path, "rb") as f:
             return base64.b64encode(f.read()).decode("utf-8")
-    except Exception:
+    except Exception as e:
+        log(f"文件读取失败: {e}", "WARNING")
         return None
 
 
@@ -704,7 +706,8 @@ def _update_face_id_display(face_id):
     try:
         text = f"id{face_id}" if face_id is not None else ""
         _face_id_obj.config(text=text)
-    except Exception:
+    except Exception as e:
+        log(f"异常被静默捕获: {e}", "WARNING")
         pass
 
 
@@ -782,12 +785,14 @@ def clock_thread():
                 if _clock_time_obj is not None:
                     try:
                         _clock_time_obj.config(text=_format_time(now))
-                    except Exception:
+                    except Exception as e:
+                        log(f"异常被静默捕获: {e}", "WARNING")
                         pass
                 if _clock_date_obj is not None:
                     try:
                         _clock_date_obj.config(text=_format_date(now))
-                    except Exception:
+                    except Exception as e:
+                        log(f"异常被静默捕获: {e}", "WARNING")
                         pass
         except Exception as e:
             log(f"时钟刷新失败: {e}", "WARNING")
