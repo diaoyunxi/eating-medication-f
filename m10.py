@@ -412,6 +412,16 @@ def upload_log(event_type, detail, photo_path=None):
     return False
 
 
+def _atomic_write_json(path, data):
+    """原子写入 JSON 文件：先写临时文件再 rename，防止进程中断导致文件损坏 (CWE-367)"""
+    tmp_path = path + ".tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp_path, path)
+
+
 def queue_local_log(payload):
     try:
         queue = []
@@ -419,8 +429,7 @@ def queue_local_log(payload):
             with open(QUEUE_FILE, "r", encoding="utf-8") as f:
                 queue = json.load(f)
         queue.append(payload)
-        with open(QUEUE_FILE, "w", encoding="utf-8") as f:
-            json.dump(queue, f, ensure_ascii=False)
+        _atomic_write_json(QUEUE_FILE, queue)
     except Exception as e:
         log(f"本地日志队列写入失败: {e}", "ERROR")
 
@@ -436,8 +445,7 @@ def flush_local_logs():
             resp = http_request(API_LOGS, payload)
             if not (resp and resp.get("code") == 0):
                 remain.append(payload)
-        with open(QUEUE_FILE, "w", encoding="utf-8") as f:
-            json.dump(remain, f, ensure_ascii=False)
+        _atomic_write_json(QUEUE_FILE, remain)
         log(f"刷新本地日志: 成功 {len(queue) - len(remain)}, 剩余 {len(remain)}")
     except Exception as e:
         log(f"刷新本地日志失败: {e}", "ERROR")
