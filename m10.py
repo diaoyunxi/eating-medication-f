@@ -473,29 +473,34 @@ def notify_emergency(contact="120"):
 def reset_fixed_trigger_if_new_day():
     """跨天时清空当日已触发固定提醒记录，避免第二天漏触发"""
     today = datetime.datetime.now().strftime("%Y-%m-%d")
-    if state["current_date"] != today:
-        state["current_date"] = today
-        state["triggered_fixed_times"] = set()
-        log(f"日期切换到 {today}，已重置固定提醒触发记录")
+    with lock:
+        if state["current_date"] != today:
+            state["current_date"] = today
+            state["triggered_fixed_times"] = set()
+            log(f"日期切换到 {today}，已重置固定提醒触发记录")
 
 
 def check_fixed_reminders():
     """检查固定服药提醒时间（9:00 / 13:00 / 17:00），每天每个时间点仅触发一次"""
     reset_fixed_trigger_if_new_day()
     now_str = datetime.datetime.now().strftime("%H:%M")
-    for t in FIXED_REMINDER_TIMES:
-        if t == now_str and t not in state["triggered_fixed_times"]:
-            state["triggered_fixed_times"].add(t)
-            reminder = {
-                "id": f"fixed_{t}",
-                "user_name": "老人",
-                "medicine_name": "药品",
-                "dose": "1次",
-                "medicine_id": None,
-                "dose_count": 1,
-            }
-            log(f"触发固定时间提醒: {t}")
-            trigger_alert(reminder)
+    to_trigger = []
+    with lock:
+        for t in FIXED_REMINDER_TIMES:
+            if t == now_str and t not in state["triggered_fixed_times"]:
+                state["triggered_fixed_times"].add(t)
+                to_trigger.append(t)
+    for t in to_trigger:
+        reminder = {
+            "id": f"fixed_{t}",
+            "user_name": "老人",
+            "medicine_name": "药品",
+            "dose": "1次",
+            "medicine_id": None,
+            "dose_count": 1,
+        }
+        log(f"触发固定时间提醒: {t}")
+        trigger_alert(reminder)
 
 
 def check_reminders():
@@ -503,7 +508,12 @@ def check_reminders():
     now_str = now.strftime("%H:%M")
     weekday = now.weekday() + 1
 
-    for r in state["reminders"]:
+    # 在锁保护下获取 reminders 快照，避免 sync_reminders() 替换列表时
+    # 本函数基于过期数据进行判断导致提醒延迟一轮（CWE-362）
+    with lock:
+        reminders_snapshot = list(state["reminders"])
+
+    for r in reminders_snapshot:
         tid = r.get("id")
         times = r.get("times", [])
         days = r.get("days", [1, 2, 3, 4, 5, 6, 7])
