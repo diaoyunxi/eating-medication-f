@@ -624,7 +624,8 @@ def recognize_medicine():
     try:
         import pytesseract
         from PIL import Image
-        img = Image.open(photo_path).convert("L")
+        with Image.open(photo_path) as img_src:
+            img = img_src.convert("L")
         text = pytesseract.image_to_string(img, lang="chi_sim+eng")
         log(f"OCR 结果: {text.strip()}")
     except Exception as e:
