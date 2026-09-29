@@ -429,15 +429,16 @@ def flush_local_logs():
     if not os.path.exists(QUEUE_FILE):
         return
     try:
-        with open(QUEUE_FILE, "r", encoding="utf-8") as f:
-            queue = json.load(f)
-        remain = []
-        for payload in queue:
-            resp = http_request(API_LOGS, payload)
-            if not (resp and resp.get("code") == 0):
-                remain.append(payload)
-        with open(QUEUE_FILE, "w", encoding="utf-8") as f:
-            json.dump(remain, f, ensure_ascii=False)
+        with lock:
+            with open(QUEUE_FILE, "r", encoding="utf-8") as f:
+                queue = json.load(f)
+            remain = []
+            for payload in queue:
+                resp = http_request(API_LOGS, payload)
+                if not (resp and resp.get("code") == 0):
+                    remain.append(payload)
+            with open(QUEUE_FILE, "w", encoding="utf-8") as f:
+                json.dump(remain, f, ensure_ascii=False)
         log(f"刷新本地日志: 成功 {len(queue) - len(remain)}, 剩余 {len(remain)}")
     except Exception as e:
         log(f"刷新本地日志失败: {e}", "ERROR")
