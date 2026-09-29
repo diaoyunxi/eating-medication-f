@@ -503,14 +503,18 @@ def check_reminders():
     now_str = now.strftime("%H:%M")
     weekday = now.weekday() + 1
 
-    for r in state["reminders"]:
+    with lock:
+        reminders_snapshot = list(state["reminders"])
+        active_alerts_snapshot = set(state["active_alerts"].keys())
+
+    for r in reminders_snapshot:
         tid = r.get("id")
         times = r.get("times", [])
         days = r.get("days", [1, 2, 3, 4, 5, 6, 7])
         if weekday not in days:
             continue
         for t in times:
-            if t == now_str and tid not in state["active_alerts"]:
+            if t == now_str and tid not in active_alerts_snapshot:
                 trigger_alert(r)
 
 
