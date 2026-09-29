@@ -538,10 +538,13 @@ def trigger_alert(reminder):
 
 
 def alert_loop(tid):
-    while tid in state["active_alerts"]:
-        info = state["active_alerts"][tid]
-        volume = info["volume"]
-        reminder = info["reminder"]
+    while True:
+        with lock:
+            info = state["active_alerts"].get(tid)
+            if info is None:
+                break
+            volume = info["volume"]
+            reminder = info["reminder"]
         drug = reminder.get("medicine_name", "药品")
         dose = reminder.get("dose", "")
         msg = f"吃{drug}{dose}"
@@ -549,8 +552,10 @@ def alert_loop(tid):
         tts_speak(msg, volume=volume)
         # 每 10 分钟增大音量
         time.sleep(SNOOZE_MINUTES * 60)
-        if tid in state["active_alerts"]:
-            info["volume"] = min(volume + VOLUME_STEP, VOLUME_MAX)
+        with lock:
+            info = state["active_alerts"].get(tid)
+            if info is not None:
+                info["volume"] = min(volume + VOLUME_STEP, VOLUME_MAX)
 
 
 def confirm_take(tid=None):
