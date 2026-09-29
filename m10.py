@@ -23,6 +23,7 @@ import subprocess
 import traceback
 import urllib.request
 import urllib.error
+import fcntl
 from pathlib import Path
 
 # 适配 UniHiker 平台
@@ -414,13 +415,19 @@ def upload_log(event_type, detail, photo_path=None):
 
 def queue_local_log(payload):
     try:
-        queue = []
-        if os.path.exists(QUEUE_FILE):
-            with open(QUEUE_FILE, "r", encoding="utf-8") as f:
-                queue = json.load(f)
-        queue.append(payload)
-        with open(QUEUE_FILE, "w", encoding="utf-8") as f:
-            json.dump(queue, f, ensure_ascii=False)
+        lock_path = QUEUE_FILE + ".lock"
+        with open(lock_path, "w") as lock_file:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            try:
+                queue = []
+                if os.path.exists(QUEUE_FILE):
+                    with open(QUEUE_FILE, "r", encoding="utf-8") as f:
+                        queue = json.load(f)
+                queue.append(payload)
+                with open(QUEUE_FILE, "w", encoding="utf-8") as f:
+                    json.dump(queue, f, ensure_ascii=False)
+            finally:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
     except Exception as e:
         log(f"本地日志队列写入失败: {e}", "ERROR")
 
