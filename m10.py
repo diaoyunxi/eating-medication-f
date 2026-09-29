@@ -425,20 +425,47 @@ def queue_local_log(payload):
         log(f"本地日志队列写入失败: {e}", "ERROR")
 
 
-def flush_local_logs():
+def flush_local_logs(batch_size=50):
+    """分批刷新本地日志队列，避免一次性加载大量数据到内存。
+
+    UniHiker M10 内存有限，长期离线时队列可能积累数千条记录，
+    一次性 json.load 全部读入会造成内存压力。改为分批处理：
+    每批最多 batch_size 条，上传成功的条目从队列中移除，
+    每批处理后立即写回磁盘（原子写入），确保进程中断不丢数据。
+    """
     if not os.path.exists(QUEUE_FILE):
         return
+    total_success = 0
+    total_remain = 0
     try:
-        with open(QUEUE_FILE, "r", encoding="utf-8") as f:
-            queue = json.load(f)
-        remain = []
-        for payload in queue:
-            resp = http_request(API_LOGS, payload)
-            if not (resp and resp.get("code") == 0):
-                remain.append(payload)
-        with open(QUEUE_FILE, "w", encoding="utf-8") as f:
-            json.dump(remain, f, ensure_ascii=False)
-        log(f"刷新本地日志: 成功 {len(queue) - len(remain)}, 剩余 {len(remain)}")
+        while True:
+            with open(QUEUE_FILE, "r", encoding="utf-8") as f:
+                queue = json.load(f)
+            if not queue:
+                break
+            batch = queue[:batch_size]
+            remain_batch = []
+            for payload in batch:
+                resp = http_request(API_LOGS, payload)
+                if resp and resp.get("code") == 0:
+                    total_success += 1
+                else:
+                    remain_batch.append(payload)
+            # 本批剩余 + 未处理的后续条目
+            new_queue = remain_batch + queue[batch_size:]
+            total_remain = len(new_queue)
+            # 原子写入：先写临时文件再 rename，防止进程中断导致队列损坏
+            tmp_path = QUEUE_FILE + ".tmp"
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(new_queue, f, ensure_ascii=False)
+            os.replace(tmp_path, QUEUE_FILE)
+            # 本批全部成功且无后续条目时退出
+            if not new_queue:
+                break
+            # 本批大小小于 batch_size 说明已处理完所有
+            if len(batch) < batch_size:
+                break
+        log(f"刷新本地日志: 成功 {total_success}, 剩余 {total_remain}")
     except Exception as e:
         log(f"刷新本地日志失败: {e}", "ERROR")
 
