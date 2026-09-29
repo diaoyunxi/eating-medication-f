@@ -481,11 +481,12 @@ def reset_fixed_trigger_if_new_day():
 
 def check_fixed_reminders():
     """检查固定服药提醒时间（9:00 / 13:00 / 17:00），每天每个时间点仅触发一次"""
-    reset_fixed_trigger_if_new_day()
-    now_str = datetime.datetime.now().strftime("%H:%M")
-    for t in FIXED_REMINDER_TIMES:
-        if t == now_str and t not in state["triggered_fixed_times"]:
-            state["triggered_fixed_times"].add(t)
+    with lock:
+        reset_fixed_trigger_if_new_day()
+        now_str = datetime.datetime.now().strftime("%H:%M")
+        for t in FIXED_REMINDER_TIMES:
+            if t == now_str and t not in state["triggered_fixed_times"]:
+                state["triggered_fixed_times"].add(t)
             reminder = {
                 "id": f"fixed_{t}",
                 "user_name": "老人",
