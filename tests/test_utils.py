@@ -46,7 +46,7 @@ class TestUtils(unittest.TestCase):
     @patch('m10.subprocess.run')
     def test_set_system_volume(self, mock_run):
         set_system_volume(50)
-        mock_run.assert_called_with('amixer set PCM 50%', shell=True, timeout=5)
+        mock_run.assert_called_with(['amixer', 'set', 'PCM', '50%'], timeout=5)
 
     @patch('m10.subprocess.run')
     def test_detect_volume_control(self, mock_run):
