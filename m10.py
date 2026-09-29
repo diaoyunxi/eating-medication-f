@@ -118,8 +118,8 @@ def log(msg, level="INFO"):
     try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(line + "\n")
-    except Exception:
-        pass
+    except Exception as _e:
+        print(f"[LOG-ERROR] {_e}")
 
 
 def ensure_dirs():
@@ -298,8 +298,8 @@ def stop_speech():
     if _speech_engine:
         try:
             _speech_engine.stop()
-        except Exception:
-            pass
+        except Exception as _e:
+            log(f"TTS stop failed: {_e}", "DEBUG")
     log("TTS 服务已停止")
 
 
@@ -704,8 +704,8 @@ def _update_face_id_display(face_id):
     try:
         text = f"id{face_id}" if face_id is not None else ""
         _face_id_obj.config(text=text)
-    except Exception:
-        pass
+    except Exception as _e:
+        log(f"Face ID display update failed: {_e}", "DEBUG")
 
 
 def update_gui_status(text, alert=False):
@@ -782,13 +782,13 @@ def clock_thread():
                 if _clock_time_obj is not None:
                     try:
                         _clock_time_obj.config(text=_format_time(now))
-                    except Exception:
-                        pass
+                    except Exception as _e:
+                        log(f"Clock time update failed: {_e}", "DEBUG")
                 if _clock_date_obj is not None:
                     try:
                         _clock_date_obj.config(text=_format_date(now))
-                    except Exception:
-                        pass
+                    except Exception as _e:
+                        log(f"Clock date update failed: {_e}", "DEBUG")
         except Exception as e:
             log(f"时钟刷新失败: {e}", "WARNING")
         time.sleep(CLOCK_REFRESH_INTERVAL)
