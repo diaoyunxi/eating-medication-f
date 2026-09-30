@@ -103,6 +103,11 @@ state = {
 
 lock = threading.Lock()
 
+# 低库存告警冷却记录 {medicine_id: last_alert_timestamp}
+# 防止 calculate_remaining_days 每 6 小时重复触发告警导致线程泄漏和语音骚扰
+_low_stock_alerted = {}
+LOW_STOCK_ALERT_COOLDOWN = 24 * 3600  # 24 小时冷却期
+
 gui = None
 buzzer = None
 button_take = None
@@ -588,7 +593,13 @@ def update_stock(medicine_id, used_count):
                 save_config(cfg)
                 threshold = m.get("threshold", 5) * m.get("daily_count", 1)
                 if m["remaining"] < threshold:
-                    threading.Thread(target=low_stock_alert, args=(m,), daemon=True).start()
+                    med_id = m.get("id")
+                    now = time.time()
+                    # 冷却期内不重复触发告警，防止每次服药扣减都产生告警线程
+                    last_alerted = _low_stock_alerted.get(med_id, 0)
+                    if now - last_alerted >= LOW_STOCK_ALERT_COOLDOWN:
+                        _low_stock_alerted[med_id] = now
+                        threading.Thread(target=low_stock_alert, args=(m,), daemon=True).start()
                 break
 
 
@@ -645,6 +656,7 @@ def recognize_medicine():
 # ============== 余量监测 ==============
 
 def calculate_remaining_days():
+    now = time.time()
     with lock:
         for m in state["medicines"]:
             total = m.get("remaining", 0)
@@ -656,6 +668,12 @@ def calculate_remaining_days():
             else:
                 m["remaining_days"] = 999
             if m["remaining_days"] < 5:
+                med_id = m.get("id")
+                # 冷却期内不重复触发告警，防止每 6 小时产生新的告警线程（CWE-770）
+                last_alerted = _low_stock_alerted.get(med_id, 0)
+                if now - last_alerted < LOW_STOCK_ALERT_COOLDOWN:
+                    continue
+                _low_stock_alerted[med_id] = now
                 threading.Thread(target=low_stock_alert, args=(m,), daemon=True).start()
 
 
