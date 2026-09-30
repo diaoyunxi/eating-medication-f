@@ -644,8 +644,13 @@ def recognize_medicine():
 
 # ============== 余量监测 ==============
 
+# 已触发低库存告警的药品 ID 集合，防止每轮 calculate_remaining_days 重复启动线程
+_low_stock_alerted = set()
+
+
 def calculate_remaining_days():
     with lock:
+        current_low = set()
         for m in state["medicines"]:
             total = m.get("remaining", 0)
             per_time = m.get("per_time", 1)
@@ -655,8 +660,14 @@ def calculate_remaining_days():
                 m["remaining_days"] = int(total / daily)
             else:
                 m["remaining_days"] = 999
-            if m["remaining_days"] < 5:
-                threading.Thread(target=low_stock_alert, args=(m,), daemon=True).start()
+            mid = m.get("id") or m.get("name")
+            if m["remaining_days"] < 5 and mid:
+                current_low.add(mid)
+                if mid not in _low_stock_alerted:
+                    _low_stock_alerted.add(mid)
+                    threading.Thread(target=low_stock_alert, args=(m,), daemon=True).start()
+        # 药品补货后余量回升，清除已告警标记以便下次再低时可重新触发
+        _low_stock_alerted.intersection_update(current_low)
 
 
 # ============== GUI 更新 ==============
