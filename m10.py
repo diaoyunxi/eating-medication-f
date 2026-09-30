@@ -168,9 +168,14 @@ def check_network():
 
 
 def detect_volume_control():
-    """自动检测可用的 ALSA 音量控制，优先 USB 声卡的 Speaker/Headphone/PCM"""
+    """自动检测可用的 ALSA 音量控制，优先 USB 声卡的 Speaker/Headphone/PCM
+
+    安全修复：所有 subprocess 调用改用参数列表替代 shell=True (CWE-78)
+    """
     try:
-        r = subprocess.run("aplay -l", shell=True, capture_output=True, text=True, timeout=5)
+        r = subprocess.run(
+            ["aplay", "-l"], capture_output=True, text=True, timeout=5
+        )
         cards_output = r.stdout
         usb_card = None
         for line in cards_output.splitlines():
@@ -184,8 +189,8 @@ def detect_volume_control():
         controls = ["Speaker", "Headphone", "PCM", "Master", "Digital"]
 
         def control_exists(card_arg, ctrl):
-            cmd = f"amixer {card_arg} scontrols" if card_arg else "amixer scontrols"
-            rr = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=3)
+            cmd = ["amixer"] + (card_arg.split() if card_arg else []) + ["scontrols"]
+            rr = subprocess.run(cmd, capture_output=True, text=True, timeout=3)
             return ctrl.lower() in rr.stdout.lower()
 
         if usb_card is not None:
@@ -894,7 +899,7 @@ def init_hardware():
             log(f"GUI 初始化失败，将以无界面模式运行: {e}", "WARNING")
             gui = None
         # 检测摄像头是否可用（通过 fswebcam 能否执行）
-        r = subprocess.run("which fswebcam", shell=True, capture_output=True)
+        r = subprocess.run(["which", "fswebcam"], capture_output=True)
         state["camera_available"] = r.returncode == 0
         log("硬件初始化完成")
     except Exception as e:
