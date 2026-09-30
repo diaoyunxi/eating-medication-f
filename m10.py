@@ -206,12 +206,20 @@ _volume_control_cmd = None
 
 
 def set_system_volume(vol):
-    """设置 USB 扬声器系统音量（amixer），自动检测并缓存可用的 ALSA 控制"""
+    """设置 USB 扬声器系统音量（amixer），自动检测并缓存可用的 ALSA 控制
+
+    安全修复：使用参数列表替代 shell=True，防止命令注入 (CWE-78)
+    """
     global _volume_control_cmd
     if not _volume_control_cmd:
         _volume_control_cmd = VOLUME_CONTROL if VOLUME_CONTROL else detect_volume_control()
     try:
-        subprocess.run(f"amixer {_volume_control_cmd} {vol}%", shell=True, timeout=5)
+        # 解析缓存的音量控制命令为参数列表
+        parts = _volume_control_cmd.split()
+        # parts 格式如 ["-c", "1", "set", "Speaker"] 或 ["set", "PCM"]
+        vol_arg = f"{vol}%"
+        cmd = ["amixer"] + parts + [vol_arg]
+        subprocess.run(cmd, timeout=5)
     except Exception as e:
         log(f"设置音量失败: {e}", "ERROR")
 
