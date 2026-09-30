@@ -526,7 +526,8 @@ def trigger_alert(reminder):
             "reminder": reminder,
         }
     # 启动提醒时按当前识别到的人脸 ID 呼叫：id{X}老人来吃药
-    face_id = state.get("current_face_id")
+    with lock:
+        face_id = state.get("current_face_id")
     if face_id is not None:
         call_msg = f"id{face_id}老人来吃药"
     else:
@@ -687,7 +688,8 @@ def _draw_face_id_label():
     if not gui:
         return
     try:
-        face_id = state.get("current_face_id")
+        with lock:
+            face_id = state.get("current_face_id")
         text = f"id{face_id}" if face_id is not None else ""
         _face_id_obj = gui.draw_text(
             x=238, y=238, text=text, font_size=10,
@@ -812,7 +814,8 @@ def face_thread():
         except Exception as e:
             log(f"人脸识别读取失败: {e}", "WARNING")
         # 更新状态与屏幕右下角显示
-        state["current_face_id"] = face_id
+        with lock:
+            state["current_face_id"] = face_id
         _update_face_id_display(face_id)
         # 识别到指定 ID 时触发吃药提醒（冷却时间内不重复触发）
         now = time.time()
