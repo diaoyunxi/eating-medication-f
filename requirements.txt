@@ -1,0 +1,10 @@
+# 硬件平台（行空板 M10）
+unihiker>=0.3.0
+pinpong>=0.4.0
+dfrobot_huskylensv2>=0.1.0
+
+# 语音合成
+pyttsx3>=2.90
+
+# 网络
+requests>=2.28.0
