@@ -475,7 +475,7 @@ def reset_fixed_trigger_if_new_day():
     today = datetime.datetime.now().strftime("%Y-%m-%d")
     if state["current_date"] != today:
         state["current_date"] = today
-        state["triggered_fixed_times"] = set()
+        state["triggered_fixed_times"] = []  # 使用 list 替代 set，确保可 JSON 序列化
         log(f"日期切换到 {today}，已重置固定提醒触发记录")
 
 
@@ -485,7 +485,8 @@ def check_fixed_reminders():
     now_str = datetime.datetime.now().strftime("%H:%M")
     for t in FIXED_REMINDER_TIMES:
         if t == now_str and t not in state["triggered_fixed_times"]:
-            state["triggered_fixed_times"].add(t)
+            if t not in state["triggered_fixed_times"]:
+                state["triggered_fixed_times"].append(t)
             reminder = {
                 "id": f"fixed_{t}",
                 "user_name": "老人",
