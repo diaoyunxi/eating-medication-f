@@ -475,7 +475,7 @@ def reset_fixed_trigger_if_new_day():
     today = datetime.datetime.now().strftime("%Y-%m-%d")
     if state["current_date"] != today:
         state["current_date"] = today
-        state["triggered_fixed_times"] = set()
+        state["triggered_fixed_times"] = []  # 使用 list 替代 set，确保可 JSON 序列化
         log(f"日期切换到 {today}，已重置固定提醒触发记录")
 
 
@@ -485,7 +485,8 @@ def check_fixed_reminders():
     now_str = datetime.datetime.now().strftime("%H:%M")
     for t in FIXED_REMINDER_TIMES:
         if t == now_str and t not in state["triggered_fixed_times"]:
-            state["triggered_fixed_times"].add(t)
+            if t not in state["triggered_fixed_times"]:
+                state["triggered_fixed_times"].append(t)
             reminder = {
                 "id": f"fixed_{t}",
                 "user_name": "老人",
@@ -539,7 +540,12 @@ def trigger_alert(reminder):
 
 def alert_loop(tid):
     while tid in state["active_alerts"]:
-        info = state["active_alerts"][tid]
+        # 安全快照：在 lock 下读取 active_alerts 的当前条目，防止 confirm_take 并发
+        # 删除该 tid 后出现 KeyError（CWE-362 竞态条件）
+        with lock:
+            info = state["active_alerts"].get(tid)
+        if info is None:
+            break
         volume = info["volume"]
         reminder = info["reminder"]
         drug = reminder.get("medicine_name", "药品")
@@ -549,8 +555,10 @@ def alert_loop(tid):
         tts_speak(msg, volume=volume)
         # 每 10 分钟增大音量
         time.sleep(SNOOZE_MINUTES * 60)
-        if tid in state["active_alerts"]:
-            info["volume"] = min(volume + VOLUME_STEP, VOLUME_MAX)
+        with lock:
+            info = state["active_alerts"].get(tid)
+            if info is not None:
+                info["volume"] = min(volume + VOLUME_STEP, VOLUME_MAX)
 
 
 def confirm_take(tid=None):
