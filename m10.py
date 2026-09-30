@@ -579,17 +579,25 @@ def confirm_take(tid=None):
 def update_stock(medicine_id, used_count):
     if not medicine_id:
         return
+    need_save = False
+    alert_medicine = None
     with lock:
         for m in state["medicines"]:
             if m.get("id") == medicine_id:
                 m["remaining"] = max(0, m.get("remaining", 0) - used_count)
-                cfg = load_config()
-                cfg["medicines"] = state["medicines"]
-                save_config(cfg)
                 threshold = m.get("threshold", 5) * m.get("daily_count", 1)
                 if m["remaining"] < threshold:
-                    threading.Thread(target=low_stock_alert, args=(m,), daemon=True).start()
+                    alert_medicine = dict(m)
+                need_save = True
                 break
+    # File I/O moved outside lock to minimize lock contention (CWE-362)
+    if need_save:
+        cfg = load_config()
+        with lock:
+            cfg["medicines"] = state["medicines"]
+        save_config(cfg)
+    if alert_medicine:
+        threading.Thread(target=low_stock_alert, args=(alert_medicine,), daemon=True).start()
 
 
 def low_stock_alert(medicine):
@@ -624,8 +632,9 @@ def recognize_medicine():
     try:
         import pytesseract
         from PIL import Image
-        img = Image.open(photo_path).convert("L")
-        text = pytesseract.image_to_string(img, lang="chi_sim+eng")
+        with Image.open(photo_path) as img:
+            img = img.convert("L")
+            text = pytesseract.image_to_string(img, lang="chi_sim+eng")
         log(f"OCR 结果: {text.strip()}")
     except Exception as e:
         log(f"OCR 失败或未安装 tesseract: {e}", "WARNING")
