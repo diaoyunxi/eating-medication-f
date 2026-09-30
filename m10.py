@@ -329,8 +329,11 @@ def capture_photo(filename=None):
     path = os.path.join(PHOTO_DIR, filename)
     try:
         # 优先使用 fswebcam（Linux 下 USB/CSI 摄像头通用）
-        cmd = f"fswebcam -r 640x480 --no-banner {path}"
-        r = subprocess.run(cmd, shell=True, capture_output=True, timeout=10)
+        # 安全修复：使用参数列表替代 shell=True，防止路径注入 (CWE-78)
+        r = subprocess.run(
+            ["fswebcam", "-r", "640x480", "--no-banner", path],
+            capture_output=True, timeout=10,
+        )
         if r.returncode == 0 and os.path.exists(path) and os.path.getsize(path) > 0:
             return path
         log(f"fswebcam 失败: {r.stderr.decode('utf-8', errors='ignore')}", "WARNING")
