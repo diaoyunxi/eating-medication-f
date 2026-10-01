@@ -48,8 +48,11 @@ LOG_FILE = "/root/medication_local.log"
 PHOTO_DIR = "/root/medication_photos"
 QUEUE_FILE = "/root/medication_log_queue.json"
 
-WIFI_SSID = "TP-LINK_5G_36DB"
-WIFI_PASSWORD = "15756491077"
+# WiFi 配置默认值：不应硬编码特定路由器名称和密码，
+# 应在配置文件 (CONFIG_FILE) 中通过 wifi_ssid / wifi_password 字段指定。
+# 未配置时设备将跳过自动连网，等待用户手动配置。
+WIFI_SSID = ""
+WIFI_PASSWORD = ""
 
 # 硬件引脚
 BUZZER_PIN = Pin.P25      # 蜂鸣器
@@ -138,8 +141,10 @@ def load_config():
 
 def save_config(cfg):
     try:
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        tmp_path = CONFIG_FILE + '.tmp'
+        with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(cfg, f, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, CONFIG_FILE)
     except Exception as e:
         log(f"保存配置失败: {e}", "ERROR")
 
