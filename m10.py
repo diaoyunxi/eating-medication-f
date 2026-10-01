@@ -503,14 +503,18 @@ def check_reminders():
     now_str = now.strftime("%H:%M")
     weekday = now.weekday() + 1
 
-    for r in state["reminders"]:
+    with lock:
+        reminders_snapshot = list(state["reminders"])
+        active_ids = set(state["active_alerts"].keys())
+
+    for r in reminders_snapshot:
         tid = r.get("id")
         times = r.get("times", [])
         days = r.get("days", [1, 2, 3, 4, 5, 6, 7])
         if weekday not in days:
             continue
         for t in times:
-            if t == now_str and tid not in state["active_alerts"]:
+            if t == now_str and tid not in active_ids:
                 trigger_alert(r)
 
 
@@ -836,9 +840,11 @@ def face_thread():
 def on_take_button_pressed():
     """P21 已吃药按钮（~A）：仅在吃药提醒时确认已吃药"""
     log("已吃药按钮被按下")
-    if state["active_alerts"]:
+    with lock:
+        if not state["active_alerts"]:
+            return
         tid = next(iter(state["active_alerts"]))
-        confirm_take(tid)
+    confirm_take(tid)
 
 
 def on_emergency_button_pressed():
