@@ -3,7 +3,8 @@
 """
 UniHiker M10 智能服药提醒终端主程序
 项目地址适配: https://my-website.ccwu.cc/eating-medication/family/
-设备配对码: 275527387791320
+设备配对码与 WiFi 凭据通过环境变量配置（M10_PAIR_CODE / M10_WIFI_SSID /
+M10_WIFI_PASSWORD / M10_BASE_URL / M10_DEVICE_ID），请勿将真实凭据写入代码。
 
 本程序使用 Python 标准库 + UniHiker 原生 API (unihiker/pinpong) + pyttsx3 TTS,
 不依赖 cv2、requests、schedule 等第三方库。
@@ -31,9 +32,19 @@ from pinpong.board import Board, Pin
 from dfrobot_huskylensv2 import *
 
 # ============== 配置区 ==============
-BASE_URL = "https://my-website.ccwu.cc/eating-medication/family"
-PAIR_CODE = "275527387791320"
-DEVICE_ID = "m10_" + PAIR_CODE
+# 服务端地址（非密钥，保留默认值，支持通过环境变量 M10_BASE_URL 覆盖）
+BASE_URL = os.environ.get(
+    "M10_BASE_URL", "https://my-website.ccwu.cc/eating-medication/family"
+)
+
+# 设备配对码与 WiFi 凭据一律从环境变量读取，禁止在代码中硬编码真实凭据。
+# 注意：旧版本曾把配对码、WiFi SSID/密码明文写死在源码中，这些凭据应视为已泄露，
+#       部署时务必更换为新凭据并通过环境变量注入。
+PAIR_CODE = os.environ.get("M10_PAIR_CODE", "")
+# DEVICE_ID 默认沿用 m10_<配对码> 规则；当配对码为空或需显式指定时，用环境变量覆盖。
+DEVICE_ID = os.environ.get("M10_DEVICE_ID", "") or (
+    "m10_" + PAIR_CODE if PAIR_CODE else ""
+)
 
 # API 端点（兼容 BASE_URL 及其子页面）
 API_REGISTER = f"{BASE_URL}/api/device/register"
@@ -48,8 +59,9 @@ LOG_FILE = "/root/medication_local.log"
 PHOTO_DIR = "/root/medication_photos"
 QUEUE_FILE = "/root/medication_log_queue.json"
 
-WIFI_SSID = "TP-LINK_5G_36DB"
-WIFI_PASSWORD = "15756491077"
+# WiFi 凭据：从环境变量读取，未配置时为空字符串（不硬编码真实密码）
+WIFI_SSID = os.environ.get("M10_WIFI_SSID", "")
+WIFI_PASSWORD = os.environ.get("M10_WIFI_PASSWORD", "")
 
 # 硬件引脚
 BUZZER_PIN = Pin.P25      # 蜂鸣器
@@ -124,6 +136,32 @@ def log(msg, level="INFO"):
 
 def ensure_dirs():
     Path(PHOTO_DIR).mkdir(parents=True, exist_ok=True)
+
+
+def startup_config_check():
+    """启动自检：检查必需的环境变量配置是否齐全。
+
+    在程序启动早期调用一次。当配对码或 WiFi SSID 为空时，打印明确的提示，
+    说明需要通过环境变量配置；同时提示旧版本硬编码的凭据已泄露、必须更换。
+    此处仅记录告警，不抛异常，避免因缺少配置导致程序无法启动。
+    """
+    missing = []
+    if not PAIR_CODE:
+        missing.append("M10_PAIR_CODE")
+    if not WIFI_SSID:
+        missing.append("M10_WIFI_SSID")
+    if missing:
+        log("配置缺失：未检测到环境变量 " + "、".join(missing), "WARNING")
+        log("请通过环境变量配置后再部署，例如：", "WARNING")
+        log('  export M10_PAIR_CODE="<你的新配对码>"', "WARNING")
+        log('  export M10_WIFI_SSID="<你的新WiFi名称>"', "WARNING")
+        log('  export M10_WIFI_PASSWORD="<你的新WiFi密码>"', "WARNING")
+        log('  export M10_BASE_URL="https://my-website.ccwu.cc/eating-medication/family"', "WARNING")
+        log("注意：旧版本硬编码的配对码与 WiFi 密码已提交到公开仓库，视为已泄露，"
+            "请务必更换为新的凭据，不要再写入代码。", "WARNING")
+    if not DEVICE_ID:
+        log("未配置 M10_DEVICE_ID 且配对码为空，DEVICE_ID 将为空，"
+            "设备注册与同步可能失败。", "WARNING")
 
 
 def load_config():
@@ -905,7 +943,8 @@ def init_network():
     cfg = load_config()
     ssid = cfg.get("wifi_ssid", WIFI_SSID)
     pwd = cfg.get("wifi_password", WIFI_PASSWORD)
-    if ssid and connect_wifi(ssid, pwd):
+    # 仅当配置了 WiFi SSID 时才尝试连接，避免使用空凭据调用 nmcli
+    if WIFI_SSID and ssid and connect_wifi(ssid, pwd):
         state["online"] = check_network()
         if state["online"]:
             register_device()
@@ -986,6 +1025,7 @@ def main_loop():
 def main():
     ensure_dirs()
     log("程序启动")
+    startup_config_check()
     init_hardware()
     init_speech()
     update_gui_status("正在连接网络...")

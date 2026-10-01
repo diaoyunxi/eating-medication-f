@@ -52,18 +52,33 @@ from dfrobot_huskylensv2 import *
 
 ## 配置项
 
-主要常量集中在 `m10.py` 顶部的「配置区」，按实际环境修改：
+### 环境变量配置（推荐）
+
+配对码、WiFi 凭据、服务端地址等全部通过环境变量注入，**禁止把真实凭据写进代码**：
+
+| 环境变量 | 说明 | 是否必填 |
+| --- | --- | --- |
+| `M10_PAIR_CODE` | 设备配对码 | 是 |
+| `M10_WIFI_SSID` | WiFi 名称 | 是（需要自动联网时） |
+| `M10_WIFI_PASSWORD` | WiFi 密码 | 是（需要自动联网时） |
+| `M10_BASE_URL` | 服务端地址，默认 `https://my-website.ccwu.cc/eating-medication/family` | 否 |
+| `M10_DEVICE_ID` | 设备 ID，默认由 `m10_<配对码>` 生成，配对码为空时可显式覆盖 | 否 |
+
+```bash
+export M10_PAIR_CODE="<你的配对码>"
+export M10_WIFI_SSID="<你的WiFi名称>"
+export M10_WIFI_PASSWORD="<你的WiFi密码>"
+export M10_BASE_URL="https://my-website.ccwu.cc/eating-medication/family"
+```
+
+程序启动时会执行一次配置自检：当 `M10_PAIR_CODE` 或 `M10_WIFI_SSID` 缺失时打印告警提示（不会中断启动）。
+> ⚠️ **安全提示**：历史版本曾将配对码与 WiFi 密码明文硬编码在源码中，这些凭据已视为泄露，请务必更换为新凭据。
+
+### 其余常量
+
+硬件引脚、音量、提醒时间等常量仍集中在 `m10.py` 顶部的「配置区」，按实际环境修改：
 
 ```python
-# 服务端地址与设备配对码
-BASE_URL = "https://my-website.ccwu.cc/eating-medication/family"
-PAIR_CODE = "275527387791320"
-DEVICE_ID = "m10_" + PAIR_CODE
-
-# WiFi（首次连接用，可被本地配置文件覆盖）
-WIFI_SSID = "TP-LINK_5G_36DB"
-WIFI_PASSWORD = "15756491077"
-
 # 固定服药提醒时间
 FIXED_REMINDER_TIMES = ["09:00", "13:00", "17:00"]
 
