@@ -118,8 +118,8 @@ def log(msg, level="INFO"):
     try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(line + "\n")
-    except Exception:
-        pass
+    except (IOError, OSError) as e:
+        print(f"[WARN] 日志写入失败: {e}")
 
 
 def ensure_dirs():
