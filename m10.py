@@ -118,8 +118,8 @@ def log(msg, level="INFO"):
     try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(line + "\n")
-    except Exception:
-        pass
+    except (IOError, OSError) as e:
+        print(f"[WARN] 日志写入失败: {e}")
 
 
 def ensure_dirs():
@@ -161,8 +161,8 @@ def connect_wifi(ssid, password):
 
 def check_network():
     try:
-        urllib.request.urlopen("https://my-website.ccwu.cc", timeout=5)
-        return True
+        with urllib.request.urlopen("https://my-website.ccwu.cc", timeout=5) as _:
+            return True
     except Exception:
         return False
 
@@ -624,8 +624,9 @@ def recognize_medicine():
     try:
         import pytesseract
         from PIL import Image
-        img = Image.open(photo_path).convert("L")
-        text = pytesseract.image_to_string(img, lang="chi_sim+eng")
+        with Image.open(photo_path) as img:
+            img = img.convert("L")
+            text = pytesseract.image_to_string(img, lang="chi_sim+eng")
         log(f"OCR 结果: {text.strip()}")
     except Exception as e:
         log(f"OCR 失败或未安装 tesseract: {e}", "WARNING")
@@ -894,7 +895,7 @@ def init_hardware():
             log(f"GUI 初始化失败，将以无界面模式运行: {e}", "WARNING")
             gui = None
         # 检测摄像头是否可用（通过 fswebcam 能否执行）
-        r = subprocess.run("which fswebcam", shell=True, capture_output=True)
+        r = subprocess.run("which fswebcam", shell=True, capture_output=True, timeout=10)
         state["camera_available"] = r.returncode == 0
         log("硬件初始化完成")
     except Exception as e:
