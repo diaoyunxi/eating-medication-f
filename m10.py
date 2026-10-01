@@ -895,7 +895,7 @@ def init_hardware():
             log(f"GUI 初始化失败，将以无界面模式运行: {e}", "WARNING")
             gui = None
         # 检测摄像头是否可用（通过 fswebcam 能否执行）
-        r = subprocess.run(["which", "fswebcam"], shell=False, capture_output=True)
+        r = subprocess.run(["which", "fswebcam"], shell=False, capture_output=True, timeout=10)
         state["camera_available"] = r.returncode == 0
         log("硬件初始化完成")
     except Exception as e:
