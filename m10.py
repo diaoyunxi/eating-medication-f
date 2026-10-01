@@ -141,8 +141,10 @@ def load_config():
 
 def save_config(cfg):
     try:
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        tmp_path = CONFIG_FILE + '.tmp'
+        with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(cfg, f, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, CONFIG_FILE)
     except Exception as e:
         log(f"保存配置失败: {e}", "ERROR")
 
