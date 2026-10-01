@@ -49,7 +49,8 @@ PHOTO_DIR = "/root/medication_photos"
 QUEUE_FILE = "/root/medication_log_queue.json"
 
 WIFI_SSID = "TP-LINK_5G_36DB"
-WIFI_PASSWORD = "15756491077"
+# WiFi 密码从环境变量加载，禁止硬编码 (CWE-798)
+WIFI_PASSWORD = os.environ.get("WIFI_PASSWORD", "")
 
 # 硬件引脚
 BUZZER_PIN = Pin.P25      # 蜂鸣器
