@@ -549,8 +549,15 @@ def alert_loop(tid):
         tts_speak(msg, volume=volume)
         # 每 10 分钟增大音量
         time.sleep(SNOOZE_MINUTES * 60)
-        if tid in state["active_alerts"]:
-            info["volume"] = min(volume + VOLUME_STEP, VOLUME_MAX)
+        # 修复 TOCTOU：sleep 后重新获取当前提醒，防止 tid 复用导致操作错误数据
+        if tid not in state["active_alerts"]:
+            break  # 提醒已被确认，退出循环
+        current_info = state["active_alerts"][tid]
+        # 验证是同一个提醒实例（防止 tid 被复用）
+        if current_info is not info:
+            log(f"提醒 {tid} 已被复用，旧 alert_loop 退出", "WARNING")
+            break
+        current_info["volume"] = min(volume + VOLUME_STEP, VOLUME_MAX)
 
 
 def confirm_take(tid=None):
