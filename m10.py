@@ -579,17 +579,25 @@ def confirm_take(tid=None):
 def update_stock(medicine_id, used_count):
     if not medicine_id:
         return
+    need_save = False
+    need_low_alert = None
     with lock:
         for m in state["medicines"]:
             if m.get("id") == medicine_id:
                 m["remaining"] = max(0, m.get("remaining", 0) - used_count)
-                cfg = load_config()
-                cfg["medicines"] = state["medicines"]
-                save_config(cfg)
                 threshold = m.get("threshold", 5) * m.get("daily_count", 1)
                 if m["remaining"] < threshold:
-                    threading.Thread(target=low_stock_alert, args=(m,), daemon=True).start()
+                    need_low_alert = m.copy()
+                need_save = True
                 break
+    # I/O 和线程创建移至锁外，避免长时间持有全局锁导致线程饥饿
+    if need_save:
+        cfg = load_config()
+        with lock:
+            cfg["medicines"] = state["medicines"]
+        save_config(cfg)
+    if need_low_alert:
+        threading.Thread(target=low_stock_alert, args=(need_low_alert,), daemon=True).start()
 
 
 def low_stock_alert(medicine):
