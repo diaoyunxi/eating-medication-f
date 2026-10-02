@@ -28,7 +28,7 @@ from pathlib import Path
 # 适配 UniHiker 平台
 from unihiker import GUI
 from pinpong.board import Board, Pin
-from dfrobot_huskylensv2 import *
+from dfrobot_huskylensv2 import HuskylensV2_I2C, ALGORITHM_FACE_RECOGNITION
 
 # ============== 配置区 ==============
 BASE_URL = "https://my-website.ccwu.cc/eating-medication/family"
@@ -49,7 +49,7 @@ PHOTO_DIR = "/root/medication_photos"
 QUEUE_FILE = "/root/medication_log_queue.json"
 
 WIFI_SSID = "TP-LINK_5G_36DB"
-WIFI_PASSWORD = "15756491077"
+WIFI_PASSWORD = os.environ.get("WIFI_PASSWORD", "")
 
 # 硬件引脚
 BUZZER_PIN = Pin.P25      # 蜂鸣器
