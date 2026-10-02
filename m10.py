@@ -516,15 +516,20 @@ def check_reminders():
 
 def trigger_alert(reminder):
     tid = reminder.get("id")
-    name = reminder.get("user_name", "老人")
-    drug = reminder.get("medicine_name", "药品")
-    dose = reminder.get("dose", "")
+    # 防止同一提醒被重复触发（如 check_reminders 与 face_thread 同时触发同一 tid）
+    # 若 tid 已在 active_alerts 中，说明 alert_loop 线程已在运行，跳过以避免重复播报和资源竞争 (CWE-362)
     with lock:
+        if tid in state["active_alerts"]:
+            log(f"提醒 {tid} 已在进行中，跳过重复触发", "DEBUG")
+            return
         state["active_alerts"][tid] = {
             "started_at": datetime.datetime.now(),
             "volume": VOLUME_INITIAL,
             "reminder": reminder,
         }
+    name = reminder.get("user_name", "老人")
+    drug = reminder.get("medicine_name", "药品")
+    dose = reminder.get("dose", "")
     # 启动提醒时按当前识别到的人脸 ID 呼叫：id{X}老人来吃药
     face_id = state.get("current_face_id")
     if face_id is not None:
