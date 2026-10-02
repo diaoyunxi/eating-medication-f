@@ -118,8 +118,9 @@ def log(msg, level="INFO"):
     try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(line + "\n")
-    except Exception:
-        pass
+    except Exception as e:
+        import sys
+        print(f"[LOG_WRITE_FAILED] {e}", file=sys.stderr)
 
 
 def ensure_dirs():
@@ -163,7 +164,8 @@ def check_network():
     try:
         urllib.request.urlopen("https://my-website.ccwu.cc", timeout=5)
         return True
-    except Exception:
+    except Exception as e:
+        log(f"网络检查失败: {e}", "WARNING")
         return False
 
 
@@ -178,7 +180,8 @@ def detect_volume_control():
                 try:
                     usb_card = int(line.split(':')[0].replace("card ", "").strip())
                     break
-                except Exception:
+                except Exception as e:
+                    log(f"解析 USB 声卡编号失败: {e}", "DEBUG")
                     continue
 
         controls = ["Speaker", "Headphone", "PCM", "Master", "Digital"]
@@ -269,7 +272,8 @@ def _speak_worker():
                         import pyttsx3
                         _speech_engine = pyttsx3.init()
                         _speech_engine.setProperty('rate', TTS_RATE)
-                    except Exception:
+                    except Exception as e:
+                        log(f"pyttsx3 重新初始化失败: {e}", "WARNING")
                         _speech_engine = None
             else:
                 # 回退到 espeak
@@ -298,8 +302,8 @@ def stop_speech():
     if _speech_engine:
         try:
             _speech_engine.stop()
-        except Exception:
-            pass
+        except Exception as e:
+            log(f"停止 TTS 引擎失败: {e}", "DEBUG")
     log("TTS 服务已停止")
 
 
@@ -343,7 +347,8 @@ def image_to_base64(path):
     try:
         with open(path, "rb") as f:
             return base64.b64encode(f.read()).decode("utf-8")
-    except Exception:
+    except Exception as e:
+        log(f"图片转 base64 失败 ({path}): {e}", "ERROR")
         return None
 
 
@@ -704,8 +709,8 @@ def _update_face_id_display(face_id):
     try:
         text = f"id{face_id}" if face_id is not None else ""
         _face_id_obj.config(text=text)
-    except Exception:
-        pass
+    except Exception as e:
+        log(f"更新人脸 ID 显示失败: {e}", "DEBUG")
 
 
 def update_gui_status(text, alert=False):
@@ -782,13 +787,13 @@ def clock_thread():
                 if _clock_time_obj is not None:
                     try:
                         _clock_time_obj.config(text=_format_time(now))
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        log(f"时钟文本对象更新失败: {e}", "DEBUG")
                 if _clock_date_obj is not None:
                     try:
                         _clock_date_obj.config(text=_format_date(now))
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        log(f"日期文本对象更新失败: {e}", "DEBUG")
         except Exception as e:
             log(f"时钟刷新失败: {e}", "WARNING")
         time.sleep(CLOCK_REFRESH_INTERVAL)
