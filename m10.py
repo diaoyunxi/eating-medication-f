@@ -350,7 +350,7 @@ def image_to_base64(path):
 # ============== 网络通信（仅使用 urllib） ==============
 
 def http_request(url, payload=None, timeout=15):
-    """封装 urllib，payload 为 dict 时 POST，否则 GET"""
+    """封装 urllib，payload 为 dict 时 POST，否则 GET。校验 HTTP 状态码防止错误响应被当作成功解析。"""
     try:
         headers = {"Content-Type": "application/json"}
         data = None
@@ -358,6 +358,10 @@ def http_request(url, payload=None, timeout=15):
             data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         req = urllib.request.Request(url, data=data, headers=headers, method="POST" if data else "GET")
         with urllib.request.urlopen(req, timeout=timeout) as resp:
+            status = resp.status
+            if status < 200 or status >= 300:
+                log(f"HTTP 请求失败 {url}: 状态码 {status}", "ERROR")
+                return None
             body = resp.read().decode("utf-8")
             return json.loads(body) if body else None
     except Exception as e:
