@@ -921,19 +921,23 @@ def button_thread():
     last_emergency = 0
     last_remind = 0
     while True:
-        now = time.time()
-        # P21 已吃药按钮（~A）：按下高电平（1），松开低电平（0）
-        if button_take and button_take.read_digital() == 1 and now - last_take > 2:
-            last_take = now
-            on_take_button_pressed()
-        # P27 B键启动吃药提醒：按下低电平（0）
-        if button_remind and button_remind.read_digital() == 0 and now - last_remind > 3:
-            last_remind = now
-            on_remind_button_pressed()
-        # P28 A键紧急呼叫：按下低电平（0），仅记录日志
-        if button_emergency and button_emergency.read_digital() == 0 and now - last_emergency > 3:
-            last_emergency = now
-            on_emergency_button_pressed()
+        try:
+            now = time.time()
+            # P21 已吃药按钮（~A）：按下高电平（1），松开低电平（0）
+            if button_take and button_take.read_digital() == 1 and now - last_take > 2:
+                last_take = now
+                on_take_button_pressed()
+            # P27 B键启动吃药提醒：按下低电平（0）
+            if button_remind and button_remind.read_digital() == 0 and now - last_remind > 3:
+                last_remind = now
+                on_remind_button_pressed()
+            # P28 A键紧急呼叫：按下低电平（0），仅记录日志
+            if button_emergency and button_emergency.read_digital() == 0 and now - last_emergency > 3:
+                last_emergency = now
+                on_emergency_button_pressed()
+        except Exception as e:
+            log(f"按钮线程硬件读取异常（将在 0.5s 后重试）: {e}", "WARNING")
+            time.sleep(0.5)
         time.sleep(0.1)
 
 
