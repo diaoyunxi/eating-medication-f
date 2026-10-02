@@ -126,22 +126,51 @@ def ensure_dirs():
     Path(PHOTO_DIR).mkdir(parents=True, exist_ok=True)
 
 
+# 默认安全配置：当配置文件缺失或损坏时使用，避免程序以不可预期的状态运行 (CWE-682)
+DEFAULT_CONFIG = {
+    "wifi_ssid": "",
+    "wifi_password": "",
+    "volume": 70,
+    "server_url": BASE_URL,
+}
+
+
 def load_config():
+    """加载配置文件，缺失或损坏时回退到 DEFAULT_CONFIG 并记录告警。"""
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception as e:
-            log(f"读取配置失败: {e}", "ERROR")
-    return {}
+                cfg = json.load(f)
+            if isinstance(cfg, dict):
+                # 用默认值补齐缺失字段，防止下游 KeyError (CWE-682)
+                merged = {**DEFAULT_CONFIG, **cfg}
+                return merged
+            log("配置文件格式错误（非字典），使用默认配置", "WARNING")
+        except (json.JSONDecodeError, ValueError) as e:
+            log(f"配置文件解析失败，使用默认配置: {e}", "WARNING")
+        except OSError as e:
+            log(f"配置文件读取失败，使用默认配置: {e}", "WARNING")
+    else:
+        log("配置文件不存在，使用默认配置", "INFO")
+    return dict(DEFAULT_CONFIG)
 
 
 def save_config(cfg):
+    """原子写入配置：先写临时文件再 rename，防止断电导致配置损坏 (CWE-672)。"""
+    tmp_path = CONFIG_FILE + ".tmp"
     try:
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(cfg, f, ensure_ascii=False, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, CONFIG_FILE)
     except Exception as e:
         log(f"保存配置失败: {e}", "ERROR")
+        # 清理残留临时文件
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
 
 
 def connect_wifi(ssid, password):
@@ -160,9 +189,10 @@ def connect_wifi(ssid, password):
 
 
 def check_network():
+    """检查网络连通性，校验 HTTP 状态码防止将错误响应误判为在线 (CWE-20)。"""
     try:
-        urllib.request.urlopen("https://my-website.ccwu.cc", timeout=5)
-        return True
+        with urllib.request.urlopen("https://my-website.ccwu.cc", timeout=5) as resp:
+            return 200 <= resp.status < 400
     except Exception:
         return False
 
