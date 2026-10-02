@@ -47,6 +47,7 @@ CONFIG_FILE = "/root/medication_config.json"
 LOG_FILE = "/root/medication_local.log"
 PHOTO_DIR = "/root/medication_photos"
 QUEUE_FILE = "/root/medication_log_queue.json"
+MAX_QUEUE_SIZE = 1000  # 离线日志队列最大条数，防止长期离线时文件无限增长耗尽磁盘
 
 WIFI_SSID = "TP-LINK_5G_36DB"
 WIFI_PASSWORD = "15756491077"
@@ -419,6 +420,11 @@ def queue_local_log(payload):
             with open(QUEUE_FILE, "r", encoding="utf-8") as f:
                 queue = json.load(f)
         queue.append(payload)
+        # 防止离线队列文件无限增长耗尽嵌入式设备磁盘空间 (CWE-770)
+        if len(queue) > MAX_QUEUE_SIZE:
+            dropped = len(queue) - MAX_QUEUE_SIZE
+            queue = queue[-MAX_QUEUE_SIZE:]
+            log(f"离线日志队列超限({MAX_QUEUE_SIZE}条)，丢弃最旧的 {dropped} 条", "WARNING")
         with open(QUEUE_FILE, "w", encoding="utf-8") as f:
             json.dump(queue, f, ensure_ascii=False)
     except Exception as e:
