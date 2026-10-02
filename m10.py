@@ -412,33 +412,40 @@ def upload_log(event_type, detail, photo_path=None):
     return False
 
 
+_queue_lock = threading.Lock()
+
+
 def queue_local_log(payload):
+    """离线日志入队：加锁保护 read-append-write 防止多线程竞态丢失数据 (CWE-367)"""
     try:
-        queue = []
-        if os.path.exists(QUEUE_FILE):
-            with open(QUEUE_FILE, "r", encoding="utf-8") as f:
-                queue = json.load(f)
-        queue.append(payload)
-        with open(QUEUE_FILE, "w", encoding="utf-8") as f:
-            json.dump(queue, f, ensure_ascii=False)
+        with _queue_lock:
+            queue = []
+            if os.path.exists(QUEUE_FILE):
+                with open(QUEUE_FILE, "r", encoding="utf-8") as f:
+                    queue = json.load(f)
+            queue.append(payload)
+            with open(QUEUE_FILE, "w", encoding="utf-8") as f:
+                json.dump(queue, f, ensure_ascii=False)
     except Exception as e:
         log(f"本地日志队列写入失败: {e}", "ERROR")
 
 
 def flush_local_logs():
+    """刷新离线日志：加锁保护防止与 queue_local_log 竞态 (CWE-367)"""
     if not os.path.exists(QUEUE_FILE):
         return
     try:
-        with open(QUEUE_FILE, "r", encoding="utf-8") as f:
-            queue = json.load(f)
-        remain = []
-        for payload in queue:
-            resp = http_request(API_LOGS, payload)
-            if not (resp and resp.get("code") == 0):
-                remain.append(payload)
-        with open(QUEUE_FILE, "w", encoding="utf-8") as f:
-            json.dump(remain, f, ensure_ascii=False)
-        log(f"刷新本地日志: 成功 {len(queue) - len(remain)}, 剩余 {len(remain)}")
+        with _queue_lock:
+            with open(QUEUE_FILE, "r", encoding="utf-8") as f:
+                queue = json.load(f)
+            remain = []
+            for payload in queue:
+                resp = http_request(API_LOGS, payload)
+                if not (resp and resp.get("code") == 0):
+                    remain.append(payload)
+            with open(QUEUE_FILE, "w", encoding="utf-8") as f:
+                json.dump(remain, f, ensure_ascii=False)
+            log(f"刷新本地日志: 成功 {len(queue) - len(remain)}, 剩余 {len(remain)}")
     except Exception as e:
         log(f"刷新本地日志失败: {e}", "ERROR")
 
