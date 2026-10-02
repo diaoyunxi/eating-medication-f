@@ -149,9 +149,12 @@ def connect_wifi(ssid, password):
     if not ssid:
         return False
     try:
-        cmd = f'nmcli dev wifi connect "{ssid}" password "{password}"'
-        r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
-        ok = r.returncode == 0 or "successfully" in r.stdout.lower() or "已激活" in r.stdout
+        # 使用参数列表 + shell=False 防止 SSID/密码中的特殊字符被 shell 解释注入
+        args = ["nmcli", "dev", "wifi", "connect", ssid]
+        if password:
+            args.extend(["password", password])
+        r = subprocess.run(args, shell=False, capture_output=True, text=True, timeout=30)
+        ok = r.returncode == 0
         log(f"WiFi 连接: {r.stdout.strip()}")
         return ok
     except Exception as e:
