@@ -865,6 +865,13 @@ def on_remind_button_pressed():
 
 def init_hardware():
     global buzzer, button_take, button_emergency, button_remind, gui, huskylens
+    # 先全部初始化为 None，确保 Board().begin() 异常时后续代码不会触发 NameError
+    buzzer = None
+    button_take = None
+    button_emergency = None
+    button_remind = None
+    gui = None
+    huskylens = None
     try:
         Board().begin()
         # 优先使用 pinpong 板载蜂鸣器（支持音效），回退到数字引脚
