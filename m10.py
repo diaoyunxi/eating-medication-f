@@ -388,7 +388,9 @@ def sync_reminders():
             state["reminders"] = resp.get("data", {}).get("reminders", [])
             state["medicines"] = resp.get("data", {}).get("medicines", [])
             state["last_sync"] = datetime.datetime.now().isoformat()
-        log(f"同步提醒: {len(state['reminders'])} 条")
+        with lock:
+            _count = len(state["reminders"])
+        log(f"同步提醒: {_count} 条")
         return True
     return False
 
@@ -473,19 +475,23 @@ def notify_emergency(contact="120"):
 def reset_fixed_trigger_if_new_day():
     """跨天时清空当日已触发固定提醒记录，避免第二天漏触发"""
     today = datetime.datetime.now().strftime("%Y-%m-%d")
-    if state["current_date"] != today:
-        state["current_date"] = today
-        state["triggered_fixed_times"] = set()
-        log(f"日期切换到 {today}，已重置固定提醒触发记录")
+    with lock:
+        if state["current_date"] != today:
+            state["current_date"] = today
+            state["triggered_fixed_times"] = set()
+            log(f"日期切换到 {today}，已重置固定提醒触发记录")
 
 
 def check_fixed_reminders():
     """检查固定服药提醒时间（9:00 / 13:00 / 17:00），每天每个时间点仅触发一次"""
     reset_fixed_trigger_if_new_day()
     now_str = datetime.datetime.now().strftime("%H:%M")
+    with lock:
+        triggered_snapshot = set(state["triggered_fixed_times"])
     for t in FIXED_REMINDER_TIMES:
-        if t == now_str and t not in state["triggered_fixed_times"]:
-            state["triggered_fixed_times"].add(t)
+        if t == now_str and t not in triggered_snapshot:
+            with lock:
+                state["triggered_fixed_times"].add(t)
             reminder = {
                 "id": f"fixed_{t}",
                 "user_name": "老人",
@@ -503,7 +509,11 @@ def check_reminders():
     now_str = now.strftime("%H:%M")
     weekday = now.weekday() + 1
 
-    for r in state["reminders"]:
+    # 在锁保护下取 reminders 快照，避免与 sync_reminders() 写操作竞态
+    with lock:
+        reminders_snapshot = list(state["reminders"])
+
+    for r in reminders_snapshot:
         tid = r.get("id")
         times = r.get("times", [])
         days = r.get("days", [1, 2, 3, 4, 5, 6, 7])
