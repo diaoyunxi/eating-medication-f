@@ -161,8 +161,8 @@ def connect_wifi(ssid, password):
 
 def check_network():
     try:
-        urllib.request.urlopen("https://my-website.ccwu.cc", timeout=5)
-        return True
+        with urllib.request.urlopen("https://my-website.ccwu.cc", timeout=5) as resp:
+            return resp.status < 400
     except Exception:
         return False
 
