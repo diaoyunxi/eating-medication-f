@@ -137,11 +137,26 @@ def load_config():
 
 
 def save_config(cfg):
+    """原子写入配置文件，防止断电/崩溃导致配置损坏 (CWE-682)
+
+    策略：先写入临时文件 → fsync 刷盘 → os.replace 原子替换。
+    若写入过程中断电，原配置文件不受影响。
+    """
+    tmp_path = CONFIG_FILE + ".tmp"
     try:
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(cfg, f, ensure_ascii=False, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, CONFIG_FILE)
     except Exception as e:
         log(f"保存配置失败: {e}", "ERROR")
+        # 清理可能残留的临时文件
+        try:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except OSError:
+            pass
 
 
 def connect_wifi(ssid, password):
