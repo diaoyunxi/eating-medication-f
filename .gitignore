@@ -107,6 +107,7 @@ SHA256SUMS.txt
 !/src/
 !package.json
 !/.github
+!LICENSE
 !.gitignore
 # 仓库根级工具脚本（与 updater.py 同性质，需纳入版本控制）
 !reset_runtime.py
