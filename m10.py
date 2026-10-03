@@ -219,7 +219,7 @@ def set_system_volume(vol):
 # ============== TTS 语音播报（pyttsx3 + 队列，参考老年端 speech.py） ==============
 
 _speech_engine = None
-_speak_queue = queue.Queue()
+_speak_queue = queue.Queue(maxsize=100)
 _speech_stop_event = threading.Event()
 _speech_thread = None
 _speech_lock = threading.Lock()
@@ -288,6 +288,12 @@ def _speak_worker():
 
 def tts_speak(text, volume=None):
     """语音播报（非阻塞，加入队列由后台线程处理）"""
+    if _speak_queue.full():
+        try:
+            _speak_queue.get_nowait()  # 丢弃最旧的条目防止内存泄漏
+        except queue.Empty:
+            pass
+        log("TTS 队列已满，丢弃最旧的播报条目", "WARNING")
     _speak_queue.put((text, volume))
 
 
