@@ -384,9 +384,12 @@ def sync_reminders():
     url = f"{API_REMINDERS}?device_id={DEVICE_ID}&pair_code={PAIR_CODE}"
     resp = http_request(url)
     if resp and resp.get("code") == 0:
+        # data 可能为 None（API 返回 {"code":0,"data":null}），
+        # 直接用 .get("data", {}) 会在 data=None 时返回 None 而非 {}
+        data = resp.get("data") or {}
         with lock:
-            state["reminders"] = resp.get("data", {}).get("reminders", [])
-            state["medicines"] = resp.get("data", {}).get("medicines", [])
+            state["reminders"] = data.get("reminders", [])
+            state["medicines"] = data.get("medicines", [])
             state["last_sync"] = datetime.datetime.now().isoformat()
         log(f"同步提醒: {len(state['reminders'])} 条")
         return True
