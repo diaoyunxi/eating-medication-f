@@ -524,6 +524,7 @@ def trigger_alert(reminder):
             "started_at": datetime.datetime.now(),
             "volume": VOLUME_INITIAL,
             "reminder": reminder,
+            "stop_event": threading.Event(),  # 用于可中断的 sleep
         }
     # 启动提醒时按当前识别到的人脸 ID 呼叫：id{X}老人来吃药
     face_id = state.get("current_face_id")
@@ -538,8 +539,16 @@ def trigger_alert(reminder):
 
 
 def alert_loop(tid):
+    """提醒循环：使用 Event.wait 替代 time.sleep，支持即时中断 (CWE-404)
+
+    原先 time.sleep(SNOOZE_MINUTES * 60) 长达 10 分钟不可中断，
+    程序退出时 daemon 线程需等待当前 sleep 结束才能检测到退出条件。
+    改用 stop_event.wait(timeout) 后，confirm_take 或程序退出时可
+    通过 set() 立即唤醒线程，实现毫秒级响应退出。
+    """
     while tid in state["active_alerts"]:
         info = state["active_alerts"][tid]
+        stop_event = info.get("stop_event")
         volume = info["volume"]
         reminder = info["reminder"]
         drug = reminder.get("medicine_name", "药品")
@@ -547,8 +556,13 @@ def alert_loop(tid):
         msg = f"吃{drug}{dose}"
         buzzer_beep(times=3, duration=0.3)
         tts_speak(msg, volume=volume)
-        # 每 10 分钟增大音量
-        time.sleep(SNOOZE_MINUTES * 60)
+        # 每 10 分钟增大音量，使用 Event.wait 可被 stop_event.set() 即时中断
+        if stop_event:
+            stopped = stop_event.wait(timeout=SNOOZE_MINUTES * 60)
+            if stopped:
+                break  # 被外部中断（确认服药或程序退出）
+        else:
+            time.sleep(SNOOZE_MINUTES * 60)
         if tid in state["active_alerts"]:
             info["volume"] = min(volume + VOLUME_STEP, VOLUME_MAX)
 
@@ -559,7 +573,12 @@ def confirm_take(tid=None):
     if state.get("camera_available"):
         photo_path = capture_photo(filename=f"take_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
     if tid and tid in state["active_alerts"]:
-        reminder = state["active_alerts"][tid]["reminder"]
+        # 先中断 alert_loop 的 sleep，使其立即退出 (CWE-404)
+        alert_info = state["active_alerts"][tid]
+        stop_event = alert_info.get("stop_event")
+        if stop_event:
+            stop_event.set()
+        reminder = alert_info["reminder"]
         del state["active_alerts"][tid]
     else:
         reminder = {}
@@ -1011,4 +1030,9 @@ if __name__ == "__main__":
     except Exception as e:
         log(f"主程序异常: {traceback.format_exc()}", "CRITICAL")
     finally:
+        # 中断所有正在进行的提醒循环，使其立即退出 (CWE-404)
+        for tid, info in list(state.get("active_alerts", {}).items()):
+            stop_event = info.get("stop_event")
+            if stop_event:
+                stop_event.set()
         stop_speech()
