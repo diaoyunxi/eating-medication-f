@@ -644,8 +644,13 @@ def recognize_medicine():
 
 # ============== 余量监测 ==============
 
+# 已触发余量告警的药品 ID 集合，防止 calculate_remaining_days 重复创建线程 (CWE-400)
+_low_stock_alerted_ids = set()
+
 def calculate_remaining_days():
+    global _low_stock_alerted_ids
     with lock:
+        current_ids = set()
         for m in state["medicines"]:
             total = m.get("remaining", 0)
             per_time = m.get("per_time", 1)
@@ -655,8 +660,14 @@ def calculate_remaining_days():
                 m["remaining_days"] = int(total / daily)
             else:
                 m["remaining_days"] = 999
-            if m["remaining_days"] < 5:
+            med_id = m.get("id") or m.get("name")
+            if med_id is not None:
+                current_ids.add(med_id)
+            if m["remaining_days"] < 5 and med_id not in _low_stock_alerted_ids:
+                _low_stock_alerted_ids.add(med_id)
                 threading.Thread(target=low_stock_alert, args=(m,), daemon=True).start()
+        # 清理已恢复库存的药品告警状态，允许下次再次触发
+        _low_stock_alerted_ids &= current_ids
 
 
 # ============== GUI 更新 ==============
