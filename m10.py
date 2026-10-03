@@ -19,6 +19,7 @@ import base64
 import queue
 import threading
 import datetime
+from datetime import timezone as _tz
 import subprocess
 import traceback
 import urllib.request
@@ -329,8 +330,8 @@ def capture_photo(filename=None):
     path = os.path.join(PHOTO_DIR, filename)
     try:
         # 优先使用 fswebcam（Linux 下 USB/CSI 摄像头通用）
-        cmd = f"fswebcam -r 640x480 --no-banner {path}"
-        r = subprocess.run(cmd, shell=True, capture_output=True, timeout=10)
+        cmd = ["fswebcam", "-r", "640x480", "--no-banner", path]
+        r = subprocess.run(cmd, capture_output=True, timeout=10)
         if r.returncode == 0 and os.path.exists(path) and os.path.getsize(path) > 0:
             return path
         log(f"fswebcam 失败: {r.stderr.decode('utf-8', errors='ignore')}", "WARNING")
@@ -387,7 +388,7 @@ def sync_reminders():
         with lock:
             state["reminders"] = resp.get("data", {}).get("reminders", [])
             state["medicines"] = resp.get("data", {}).get("medicines", [])
-            state["last_sync"] = datetime.datetime.now().isoformat()
+            state["last_sync"] = datetime.datetime.now(_tz.utc).isoformat()
         log(f"同步提醒: {len(state['reminders'])} 条")
         return True
     return False
@@ -399,7 +400,7 @@ def upload_log(event_type, detail, photo_path=None):
         "pair_code": PAIR_CODE,
         "event_type": event_type,
         "detail": detail,
-        "timestamp": datetime.datetime.now().isoformat(),
+        "timestamp": datetime.datetime.now(_tz.utc).isoformat(),
     }
     if photo_path and os.path.exists(photo_path):
         payload["photo"] = image_to_base64(photo_path)
@@ -458,7 +459,7 @@ def notify_emergency(contact="120"):
         "device_id": DEVICE_ID,
         "pair_code": PAIR_CODE,
         "contact": contact,
-        "timestamp": datetime.datetime.now().isoformat(),
+        "timestamp": datetime.datetime.now(_tz.utc).isoformat(),
     }
     resp = http_request(API_EMERGENCY, payload)
     if resp and resp.get("code") == 0:
@@ -521,7 +522,7 @@ def trigger_alert(reminder):
     dose = reminder.get("dose", "")
     with lock:
         state["active_alerts"][tid] = {
-            "started_at": datetime.datetime.now(),
+            "started_at": datetime.datetime.now(_tz.utc),
             "volume": VOLUME_INITIAL,
             "reminder": reminder,
         }
