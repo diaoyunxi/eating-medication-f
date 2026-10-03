@@ -329,8 +329,8 @@ def capture_photo(filename=None):
     path = os.path.join(PHOTO_DIR, filename)
     try:
         # 优先使用 fswebcam（Linux 下 USB/CSI 摄像头通用）
-        cmd = f"fswebcam -r 640x480 --no-banner {path}"
-        r = subprocess.run(cmd, shell=True, capture_output=True, timeout=10)
+        cmd = ["fswebcam", "-r", "640x480", "--no-banner", path]
+        r = subprocess.run(cmd, shell=False, capture_output=True, timeout=10)
         if r.returncode == 0 and os.path.exists(path) and os.path.getsize(path) > 0:
             return path
         log(f"fswebcam 失败: {r.stderr.decode('utf-8', errors='ignore')}", "WARNING")
@@ -624,8 +624,9 @@ def recognize_medicine():
     try:
         import pytesseract
         from PIL import Image
-        img = Image.open(photo_path).convert("L")
-        text = pytesseract.image_to_string(img, lang="chi_sim+eng")
+        with Image.open(photo_path) as img:
+            gray = img.convert("L")
+            text = pytesseract.image_to_string(gray, lang="chi_sim+eng")
         log(f"OCR 结果: {text.strip()}")
     except Exception as e:
         log(f"OCR 失败或未安装 tesseract: {e}", "WARNING")
