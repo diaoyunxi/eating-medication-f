@@ -103,6 +103,9 @@ state = {
 
 lock = threading.Lock()
 
+# 每个活跃提醒对应一个 Event，confirm_take 时 set() 以立即唤醒 alert_loop
+_alert_cancel_events: dict = {}
+
 gui = None
 buzzer = None
 button_take = None
@@ -538,6 +541,10 @@ def trigger_alert(reminder):
 
 
 def alert_loop(tid):
+    cancel_event = _alert_cancel_events.get(tid)
+    if cancel_event is None:
+        cancel_event = threading.Event()
+        _alert_cancel_events[tid] = cancel_event
     while tid in state["active_alerts"]:
         info = state["active_alerts"][tid]
         volume = info["volume"]
@@ -547,10 +554,14 @@ def alert_loop(tid):
         msg = f"吃{drug}{dose}"
         buzzer_beep(times=3, duration=0.3)
         tts_speak(msg, volume=volume)
-        # 每 10 分钟增大音量
-        time.sleep(SNOOZE_MINUTES * 60)
+        # 每 10 分钟增大音量；使用 Event.wait 替代 time.sleep，
+        # 当 confirm_take 调用 cancel_event.set() 时可立即退出循环
+        if cancel_event.wait(timeout=SNOOZE_MINUTES * 60):
+            break  # 提醒已被确认，退出循环
         if tid in state["active_alerts"]:
             info["volume"] = min(volume + VOLUME_STEP, VOLUME_MAX)
+    # 清理 cancel event
+    _alert_cancel_events.pop(tid, None)
 
 
 def confirm_take(tid=None):
@@ -559,8 +570,12 @@ def confirm_take(tid=None):
     if state.get("camera_available"):
         photo_path = capture_photo(filename=f"take_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
     if tid and tid in state["active_alerts"]:
-        reminder = state["active_alerts"][tid]["reminder"]
-        del state["active_alerts"][tid]
+        # 先唤醒 alert_loop 线程使其立即退出，再从 active_alerts 中删除
+        cancel_event = _alert_cancel_events.get(tid)
+        if cancel_event:
+            cancel_event.set()
+        with lock:
+            reminder = state["active_alerts"].pop(tid, {}).get("reminder", {})
     else:
         reminder = {}
 
