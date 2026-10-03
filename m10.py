@@ -31,8 +31,11 @@ from pinpong.board import Board, Pin
 from dfrobot_huskylensv2 import *
 
 # ============== 配置区 ==============
-BASE_URL = "https://my-website.ccwu.cc/eating-medication/family"
-PAIR_CODE = "275527387791320"
+# 安全改进：敏感凭据从环境变量读取，避免硬编码在源码中 (CWE-798)
+# 部署时通过 .env 文件或系统环境变量设置以下值：
+#   MEDICATION_BASE_URL, MEDICATION_PAIR_CODE, MEDICATION_WIFI_SSID, MEDICATION_WIFI_PASSWORD
+BASE_URL = os.environ.get("MEDICATION_BASE_URL", "https://my-website.ccwu.cc/eating-medication/family")
+PAIR_CODE = os.environ.get("MEDICATION_PAIR_CODE", "")
 DEVICE_ID = "m10_" + PAIR_CODE
 
 # API 端点（兼容 BASE_URL 及其子页面）
@@ -48,8 +51,8 @@ LOG_FILE = "/root/medication_local.log"
 PHOTO_DIR = "/root/medication_photos"
 QUEUE_FILE = "/root/medication_log_queue.json"
 
-WIFI_SSID = "TP-LINK_5G_36DB"
-WIFI_PASSWORD = "15756491077"
+WIFI_SSID = os.environ.get("MEDICATION_WIFI_SSID", "")
+WIFI_PASSWORD = os.environ.get("MEDICATION_WIFI_PASSWORD", "")
 
 # 硬件引脚
 BUZZER_PIN = Pin.P25      # 蜂鸣器
@@ -558,11 +561,12 @@ def confirm_take(tid=None):
     photo_path = None
     if state.get("camera_available"):
         photo_path = capture_photo(filename=f"take_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
-    if tid and tid in state["active_alerts"]:
-        reminder = state["active_alerts"][tid]["reminder"]
-        del state["active_alerts"][tid]
-    else:
-        reminder = {}
+    with lock:
+        if tid and tid in state["active_alerts"]:
+            reminder = state["active_alerts"][tid]["reminder"]
+            del state["active_alerts"][tid]
+        else:
+            reminder = {}
 
     detail = {
         "action": "confirm_take",
@@ -624,8 +628,9 @@ def recognize_medicine():
     try:
         import pytesseract
         from PIL import Image
-        img = Image.open(photo_path).convert("L")
-        text = pytesseract.image_to_string(img, lang="chi_sim+eng")
+        with Image.open(photo_path) as img:
+            img = img.convert("L")
+            text = pytesseract.image_to_string(img, lang="chi_sim+eng")
         log(f"OCR 结果: {text.strip()}")
     except Exception as e:
         log(f"OCR 失败或未安装 tesseract: {e}", "WARNING")
@@ -894,7 +899,7 @@ def init_hardware():
             log(f"GUI 初始化失败，将以无界面模式运行: {e}", "WARNING")
             gui = None
         # 检测摄像头是否可用（通过 fswebcam 能否执行）
-        r = subprocess.run("which fswebcam", shell=True, capture_output=True)
+        r = subprocess.run("which fswebcam", shell=True, capture_output=True, timeout=10)
         state["camera_available"] = r.returncode == 0
         log("硬件初始化完成")
     except Exception as e:
