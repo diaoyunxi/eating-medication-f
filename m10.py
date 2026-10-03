@@ -558,11 +558,12 @@ def confirm_take(tid=None):
     photo_path = None
     if state.get("camera_available"):
         photo_path = capture_photo(filename=f"take_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
-    if tid and tid in state["active_alerts"]:
-        reminder = state["active_alerts"][tid]["reminder"]
-        del state["active_alerts"][tid]
-    else:
-        reminder = {}
+    with lock:
+        if tid and tid in state["active_alerts"]:
+            reminder = state["active_alerts"][tid]["reminder"]
+            del state["active_alerts"][tid]
+        else:
+            reminder = {}
 
     detail = {
         "action": "confirm_take",
@@ -624,8 +625,9 @@ def recognize_medicine():
     try:
         import pytesseract
         from PIL import Image
-        img = Image.open(photo_path).convert("L")
-        text = pytesseract.image_to_string(img, lang="chi_sim+eng")
+        with Image.open(photo_path) as img:
+            img = img.convert("L")
+            text = pytesseract.image_to_string(img, lang="chi_sim+eng")
         log(f"OCR 结果: {text.strip()}")
     except Exception as e:
         log(f"OCR 失败或未安装 tesseract: {e}", "WARNING")
@@ -894,7 +896,7 @@ def init_hardware():
             log(f"GUI 初始化失败，将以无界面模式运行: {e}", "WARNING")
             gui = None
         # 检测摄像头是否可用（通过 fswebcam 能否执行）
-        r = subprocess.run("which fswebcam", shell=True, capture_output=True)
+        r = subprocess.run("which fswebcam", shell=True, capture_output=True, timeout=10)
         state["camera_available"] = r.returncode == 0
         log("硬件初始化完成")
     except Exception as e:
