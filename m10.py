@@ -103,6 +103,9 @@ state = {
 
 lock = threading.Lock()
 
+# 离线日志队列文件锁，防止多线程并发读写 QUEUE_FILE 导致数据丢失
+_queue_file_lock = threading.Lock()
+
 gui = None
 buzzer = None
 button_take = None
@@ -413,32 +416,40 @@ def upload_log(event_type, detail, photo_path=None):
 
 
 def queue_local_log(payload):
+    """写入离线日志队列（线程安全）"""
     try:
-        queue = []
-        if os.path.exists(QUEUE_FILE):
-            with open(QUEUE_FILE, "r", encoding="utf-8") as f:
-                queue = json.load(f)
-        queue.append(payload)
-        with open(QUEUE_FILE, "w", encoding="utf-8") as f:
-            json.dump(queue, f, ensure_ascii=False)
+        with _queue_file_lock:
+            queue = []
+            if os.path.exists(QUEUE_FILE):
+                with open(QUEUE_FILE, "r", encoding="utf-8") as f:
+                    queue = json.load(f)
+            queue.append(payload)
+            with open(QUEUE_FILE, "w", encoding="utf-8") as f:
+                json.dump(queue, f, ensure_ascii=False)
     except Exception as e:
         log(f"本地日志队列写入失败: {e}", "ERROR")
 
 
 def flush_local_logs():
+    """刷新离线日志队列，上传成功的条目从队列中移除（线程安全）"""
     if not os.path.exists(QUEUE_FILE):
         return
     try:
-        with open(QUEUE_FILE, "r", encoding="utf-8") as f:
-            queue = json.load(f)
-        remain = []
-        for payload in queue:
-            resp = http_request(API_LOGS, payload)
-            if not (resp and resp.get("code") == 0):
-                remain.append(payload)
-        with open(QUEUE_FILE, "w", encoding="utf-8") as f:
-            json.dump(remain, f, ensure_ascii=False)
-        log(f"刷新本地日志: 成功 {len(queue) - len(remain)}, 剩余 {len(remain)}")
+        with _queue_file_lock:
+            with open(QUEUE_FILE, "r", encoding="utf-8") as f:
+                queue = json.load(f)
+            remain = []
+            for payload in queue:
+                resp = http_request(API_LOGS, payload)
+                if not (resp and resp.get("code") == 0):
+                    remain.append(payload)
+            with open(QUEUE_FILE, "w", encoding="utf-8") as f:
+                json.dump(remain, f, ensure_ascii=False)
+            total = len(queue)
+            remaining = len(remain)
+        log(f"刷新本地日志: 成功 {total - remaining}, 剩余 {remaining}")
+    except Exception as e:
+        log(f"刷新本地日志失败: {e}", "ERROR")
     except Exception as e:
         log(f"刷新本地日志失败: {e}", "ERROR")
 
