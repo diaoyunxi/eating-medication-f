@@ -557,15 +557,40 @@ def alert_loop(tid):
 
 
 def confirm_take(tid=None):
-    """确认服药：拍照上传（无摄像头则跳过）并停止提醒，返回主页"""
+    """确认服药：拍照上传（无摄像头则跳过）并停止提醒，返回主页。
+
+    仅在当前存在活跃告警时才执行确认流程，防止无告警时的误触或竞态
+    导致空记录上报日志和无效的库存扣减。
+    """
+    # 校验：必须存在活跃告警才允许确认（防止空 reminder 导致无意义上报）
+    if tid is None:
+        # tid 未指定时，取当前唯一活跃告警（若有多个则拒绝，要求明确指定）
+        active_tids = list(state["active_alerts"].keys())
+        if len(active_tids) == 1:
+            tid = active_tids[0]
+        elif len(active_tids) == 0:
+            log("confirm_take: 当前无活跃告警，忽略", "WARNING")
+            tts_speak("当前没有服药提醒")
+            update_gui_home()
+            return
+        else:
+            log(f"confirm_take: 多个活跃告警 {active_tids}，未指定 tid，忽略", "WARNING")
+            tts_speak("有多个提醒，请指定确认哪一个")
+            return
+
+    if tid not in state["active_alerts"]:
+        log(f"confirm_take: 告警 {tid} 已不存在，忽略", "WARNING")
+        tts_speak("该提醒已过期")
+        update_gui_home()
+        return
+
+    # 存在活跃告警，正常执行确认流程
+    reminder = state["active_alerts"][tid]["reminder"]
+    del state["active_alerts"][tid]
+
     photo_path = None
     if state.get("camera_available"):
         photo_path = capture_photo(filename=f"take_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
-    if tid and tid in state["active_alerts"]:
-        reminder = state["active_alerts"][tid]["reminder"]
-        del state["active_alerts"][tid]
-    else:
-        reminder = {}
 
     detail = {
         "action": "confirm_take",
