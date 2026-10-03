@@ -160,9 +160,12 @@ def connect_wifi(ssid, password):
 
 
 def check_network():
+    """检查网络连通性。使用上下文管理器确保 HTTP 连接正确关闭，防止 socket 泄漏。"""
     try:
-        urllib.request.urlopen("https://my-website.ccwu.cc", timeout=5)
-        return True
+        with urllib.request.urlopen("https://my-website.ccwu.cc", timeout=5) as resp:
+            # 读取少量数据确认响应有效，然后上下文管理器自动关闭连接
+            resp.read(1)
+            return resp.status == 200
     except Exception:
         return False
 
@@ -350,7 +353,9 @@ def image_to_base64(path):
 # ============== 网络通信（仅使用 urllib） ==============
 
 def http_request(url, payload=None, timeout=15):
-    """封装 urllib，payload 为 dict 时 POST，否则 GET"""
+    """封装 urllib，payload 为 dict 时 POST，否则 GET。
+    添加 HTTP 状态码校验：仅 2xx 视为成功，非 2xx 记录警告并返回 None。
+    """
     try:
         headers = {"Content-Type": "application/json"}
         data = None
@@ -358,8 +363,15 @@ def http_request(url, payload=None, timeout=15):
             data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         req = urllib.request.Request(url, data=data, headers=headers, method="POST" if data else "GET")
         with urllib.request.urlopen(req, timeout=timeout) as resp:
+            status = resp.status
+            if status < 200 or status >= 300:
+                log(f"HTTP 非成功状态码 {status} {url}", "WARNING")
+                return None
             body = resp.read().decode("utf-8")
             return json.loads(body) if body else None
+    except urllib.error.HTTPError as e:
+        log(f"HTTP 错误 {e.code} {url}: {e.reason}", "ERROR")
+        return None
     except Exception as e:
         log(f"HTTP 请求失败 {url}: {e}", "ERROR")
         return None
