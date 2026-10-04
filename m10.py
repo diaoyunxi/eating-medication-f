@@ -10,6 +10,7 @@ UniHiker M10 智能服药提醒终端主程序
 """
 
 import os
+import shutil
 # 必须在导入 tkinter/unihiker 之前强制设置 DISPLAY（SSH 远程运行时需要）
 os.environ["DISPLAY"] = os.environ.get("DISPLAY") or ":0"
 
@@ -329,8 +330,10 @@ def capture_photo(filename=None):
     path = os.path.join(PHOTO_DIR, filename)
     try:
         # 优先使用 fswebcam（Linux 下 USB/CSI 摄像头通用）
-        cmd = f"fswebcam -r 640x480 --no-banner {path}"
-        r = subprocess.run(cmd, shell=True, capture_output=True, timeout=10)
+        r = subprocess.run(
+            ["fswebcam", "-r", "640x480", "--no-banner", path],
+            shell=False, capture_output=True, timeout=10,
+        )
         if r.returncode == 0 and os.path.exists(path) and os.path.getsize(path) > 0:
             return path
         log(f"fswebcam 失败: {r.stderr.decode('utf-8', errors='ignore')}", "WARNING")
@@ -894,8 +897,7 @@ def init_hardware():
             log(f"GUI 初始化失败，将以无界面模式运行: {e}", "WARNING")
             gui = None
         # 检测摄像头是否可用（通过 fswebcam 能否执行）
-        r = subprocess.run("which fswebcam", shell=True, capture_output=True)
-        state["camera_available"] = r.returncode == 0
+        state["camera_available"] = shutil.which("fswebcam") is not None
         log("硬件初始化完成")
     except Exception as e:
         log(f"硬件初始化异常: {e}", "ERROR")
