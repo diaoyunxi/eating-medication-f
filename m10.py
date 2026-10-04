@@ -28,7 +28,13 @@ from pathlib import Path
 # 适配 UniHiker 平台
 from unihiker import GUI
 from pinpong.board import Board, Pin
-from dfrobot_huskylensv2 import *
+try:
+    from dfrobot_huskylensv2 import (
+        COMMAND_REQUEST_CUSTOMNAMES,
+    )
+except ImportError:
+    # 硬件库在非 UniHiker 环境下不可用，测试时 mock
+    COMMAND_REQUEST_CUSTOMNAMES = 0x2F
 
 # ============== 配置区 ==============
 BASE_URL = "https://my-website.ccwu.cc/eating-medication/family"
