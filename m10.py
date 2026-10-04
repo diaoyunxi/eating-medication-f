@@ -170,7 +170,7 @@ def check_network():
 def detect_volume_control():
     """自动检测可用的 ALSA 音量控制，优先 USB 声卡的 Speaker/Headphone/PCM"""
     try:
-        r = subprocess.run("aplay -l", shell=True, capture_output=True, text=True, timeout=5)
+        r = subprocess.run(["aplay", "-l"], shell=False, capture_output=True, text=True, timeout=5)
         cards_output = r.stdout
         usb_card = None
         for line in cards_output.splitlines():
@@ -184,8 +184,8 @@ def detect_volume_control():
         controls = ["Speaker", "Headphone", "PCM", "Master", "Digital"]
 
         def control_exists(card_arg, ctrl):
-            cmd = f"amixer {card_arg} scontrols" if card_arg else "amixer scontrols"
-            rr = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=3)
+            cmd_parts = ["amixer"] + card_arg.split() + ["scontrols"] if card_arg else ["amixer", "scontrols"]
+            rr = subprocess.run(cmd_parts, shell=False, capture_output=True, text=True, timeout=3)
             return ctrl.lower() in rr.stdout.lower()
 
         if usb_card is not None:
@@ -211,7 +211,10 @@ def set_system_volume(vol):
     if not _volume_control_cmd:
         _volume_control_cmd = VOLUME_CONTROL if VOLUME_CONTROL else detect_volume_control()
     try:
-        subprocess.run(f"amixer {_volume_control_cmd} {vol}%", shell=True, timeout=5)
+        subprocess.run(
+            ["amixer"] + _volume_control_cmd.split() + [f"{vol}%"],
+            shell=False, timeout=5,
+        )
     except Exception as e:
         log(f"设置音量失败: {e}", "ERROR")
 
