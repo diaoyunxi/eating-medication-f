@@ -99,6 +99,7 @@ state = {
     "triggered_fixed_times": set(),  # 当天已触发的固定提醒时间，避免重复触发
     "current_date": None,     # 当天日期字符串 YYYY-MM-DD，用于跨天重置触发记录
     "current_face_id": None,  # 当前识别到的人脸 ID（None 表示未识别到）
+    "fired_today": set(),     # 当天已触发的服务端提醒 {(reminder_id, time_str), ...}，避免漏触发与重复触发
 }
 
 lock = threading.Lock()
@@ -476,7 +477,8 @@ def reset_fixed_trigger_if_new_day():
     if state["current_date"] != today:
         state["current_date"] = today
         state["triggered_fixed_times"] = set()
-        log(f"日期切换到 {today}，已重置固定提醒触发记录")
+        state["fired_today"] = set()
+        log(f"日期切换到 {today}，已重置固定提醒与服务端提醒触发记录")
 
 
 def check_fixed_reminders():
@@ -499,6 +501,9 @@ def check_fixed_reminders():
 
 
 def check_reminders():
+    """检查服务端同步的服药提醒，使用 >= 比较避免主循环延迟导致漏触发，
+    配合 fired_today 集合确保每天每个时间点只触发一次。"""
+    reset_fixed_trigger_if_new_day()
     now = datetime.datetime.now()
     now_str = now.strftime("%H:%M")
     weekday = now.weekday() + 1
@@ -510,8 +515,14 @@ def check_reminders():
         if weekday not in days:
             continue
         for t in times:
-            if t == now_str and tid not in state["active_alerts"]:
-                trigger_alert(r)
+            fire_key = (tid, t)
+            # 使用 >= 比较：当前时间已过（或正好到达）提醒时间即触发，
+            # 避免主循环延迟超过 60 秒时精确匹配失败导致漏触发；
+            # fired_today 确保同一提醒每天只触发一次。
+            if t <= now_str and fire_key not in state["fired_today"]:
+                if tid not in state["active_alerts"]:
+                    state["fired_today"].add(fire_key)
+                    trigger_alert(r)
 
 
 def trigger_alert(reminder):
