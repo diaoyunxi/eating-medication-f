@@ -46,14 +46,14 @@ class TestUtils(unittest.TestCase):
     @patch('m10.subprocess.run')
     def test_set_system_volume(self, mock_run):
         set_system_volume(50)
-        mock_run.assert_called_with('amixer set PCM 50%', shell=True, timeout=5)
+        mock_run.assert_called_with(['amixer', 'set', 'PCM', '50%'], shell=False, timeout=5)
 
     @patch('m10.subprocess.run')
     def test_detect_volume_control(self, mock_run):
         def side_effect(cmd, **kwargs):
             if 'aplay' in cmd:
                 return MagicMock(stdout="card 1: USB Audio [USB Audio]\n")
-            elif 'scontrols' in cmd:
+            if 'scontrols' in cmd:
                 return MagicMock(stdout="Simple mixer control 'Speaker',0\n")
             return MagicMock()
         mock_run.side_effect = side_effect
