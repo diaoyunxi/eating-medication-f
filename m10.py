@@ -414,13 +414,13 @@ def upload_log(event_type, detail, photo_path=None):
 
 def queue_local_log(payload):
     try:
-        queue = []
+        local_queue = []
         if os.path.exists(QUEUE_FILE):
             with open(QUEUE_FILE, "r", encoding="utf-8") as f:
-                queue = json.load(f)
-        queue.append(payload)
+                local_queue = json.load(f)
+        local_queue.append(payload)
         with open(QUEUE_FILE, "w", encoding="utf-8") as f:
-            json.dump(queue, f, ensure_ascii=False)
+            json.dump(local_queue, f, ensure_ascii=False)
     except Exception as e:
         log(f"本地日志队列写入失败: {e}", "ERROR")
 
@@ -624,8 +624,8 @@ def recognize_medicine():
     try:
         import pytesseract
         from PIL import Image
-        img = Image.open(photo_path).convert("L")
-        text = pytesseract.image_to_string(img, lang="chi_sim+eng")
+        with Image.open(photo_path) as img:
+            text = pytesseract.image_to_string(img.convert("L"), lang="chi_sim+eng")
         log(f"OCR 结果: {text.strip()}")
     except Exception as e:
         log(f"OCR 失败或未安装 tesseract: {e}", "WARNING")
