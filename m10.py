@@ -811,8 +811,9 @@ def face_thread():
                             face_id = rid
         except Exception as e:
             log(f"人脸识别读取失败: {e}", "WARNING")
-        # 更新状态与屏幕右下角显示
-        state["current_face_id"] = face_id
+        # 更新状态与屏幕右下角显示（加锁防止与主线程竞态）
+        with lock:
+            state["current_face_id"] = face_id
         _update_face_id_display(face_id)
         # 识别到指定 ID 时触发吃药提醒（冷却时间内不重复触发）
         now = time.time()
@@ -836,9 +837,13 @@ def face_thread():
 def on_take_button_pressed():
     """P21 已吃药按钮（~A）：仅在吃药提醒时确认已吃药"""
     log("已吃药按钮被按下")
-    if state["active_alerts"]:
-        tid = next(iter(state["active_alerts"]))
-        confirm_take(tid)
+    with lock:
+        alerts_snapshot = dict(state["active_alerts"])
+    if not alerts_snapshot:
+        log("按钮按下时无活跃提醒（可能已被其他线程确认）", "WARNING")
+        return
+    tid = next(iter(alerts_snapshot))
+    confirm_take(tid)
 
 
 def on_emergency_button_pressed():
