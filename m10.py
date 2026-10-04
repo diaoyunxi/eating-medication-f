@@ -19,6 +19,8 @@ import base64
 import queue
 import threading
 import datetime
+from datetime import timezone as _tz
+from datetime import timezone as _tz
 import subprocess
 import traceback
 import urllib.request
@@ -113,7 +115,7 @@ huskylens = None  # HuskylensV2 I2C 人脸识别模块
 # ============== 工具函数 ==============
 
 def log(msg, level="INFO"):
-    line = f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [{level}] {msg}"
+    line = f"[{datetime.datetime.now(_tz.utc).strftime('%Y-%m-%d %H:%M:%S')}] [{level}] {msg}"
     print(line)
     try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
@@ -325,7 +327,7 @@ def buzzer_beep(times=1, duration=0.2):
 def capture_photo(filename=None):
     """使用系统 fswebcam 命令拍照，不依赖 cv2"""
     if filename is None:
-        filename = f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+        filename = f"{datetime.datetime.now(_tz.utc).strftime('%Y%m%d_%H%M%S')}.jpg"
     path = os.path.join(PHOTO_DIR, filename)
     try:
         # 优先使用 fswebcam（Linux 下 USB/CSI 摄像头通用）
@@ -472,7 +474,7 @@ def notify_emergency(contact="120"):
 
 def reset_fixed_trigger_if_new_day():
     """跨天时清空当日已触发固定提醒记录，避免第二天漏触发"""
-    today = datetime.datetime.now().strftime("%Y-%m-%d")
+    today = datetime.datetime.now(_tz.utc).strftime("%Y-%m-%d")
     if state["current_date"] != today:
         state["current_date"] = today
         state["triggered_fixed_times"] = set()
@@ -482,7 +484,7 @@ def reset_fixed_trigger_if_new_day():
 def check_fixed_reminders():
     """检查固定服药提醒时间（9:00 / 13:00 / 17:00），每天每个时间点仅触发一次"""
     reset_fixed_trigger_if_new_day()
-    now_str = datetime.datetime.now().strftime("%H:%M")
+    now_str = datetime.datetime.now(_tz.utc).strftime("%H:%M")
     for t in FIXED_REMINDER_TIMES:
         if t == now_str and t not in state["triggered_fixed_times"]:
             state["triggered_fixed_times"].add(t)
@@ -499,7 +501,7 @@ def check_fixed_reminders():
 
 
 def check_reminders():
-    now = datetime.datetime.now()
+    now = datetime.datetime.now(_tz.utc)
     now_str = now.strftime("%H:%M")
     weekday = now.weekday() + 1
 
@@ -557,7 +559,7 @@ def confirm_take(tid=None):
     """确认服药：拍照上传（无摄像头则跳过）并停止提醒，返回主页"""
     photo_path = None
     if state.get("camera_available"):
-        photo_path = capture_photo(filename=f"take_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
+        photo_path = capture_photo(filename=f"take_{datetime.datetime.now(_tz.utc).strftime('%Y%m%d_%H%M%S')}.jpg")
     if tid and tid in state["active_alerts"]:
         reminder = state["active_alerts"][tid]["reminder"]
         del state["active_alerts"][tid]
@@ -613,7 +615,7 @@ def recognize_medicine():
         update_gui_home()
         return
     update_gui_status("正在识别药品...")
-    photo_path = capture_photo(filename=f"ocr_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
+    photo_path = capture_photo(filename=f"ocr_{datetime.datetime.now(_tz.utc).strftime('%Y%m%d_%H%M%S')}.jpg")
     if not photo_path:
         tts_speak("摄像头未就绪")
         update_gui_home()
@@ -738,7 +740,7 @@ def update_gui_home():
         gui.draw_text(x=120, y=30, text="智能服药提醒", font_size=18, color="#000000", origin="center")
         status = "在线" if state["online"] else "离线模式"
         gui.draw_text(x=120, y=65, text=status, font_size=12, color="#666666", origin="center")
-        now = datetime.datetime.now()
+        now = datetime.datetime.now(_tz.utc)
         # 日期行
         _clock_date_obj = gui.draw_text(
             x=120, y=120, text=_format_date(now),
@@ -778,7 +780,7 @@ def clock_thread():
     while not _clock_stop_event.is_set():
         try:
             if gui and _gui_mode == "home":
-                now = datetime.datetime.now()
+                now = datetime.datetime.now(_tz.utc)
                 if _clock_time_obj is not None:
                     try:
                         _clock_time_obj.config(text=_format_time(now))
@@ -945,7 +947,7 @@ def main_loop():
     last_flush = 0
 
     while True:
-        now = datetime.datetime.now()
+        now = datetime.datetime.now(_tz.utc)
         now_str = now.strftime("%H:%M")
 
         # 每分钟检查提醒（含固定时间提醒 9:00/13:00/17:00）
