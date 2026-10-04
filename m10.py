@@ -170,7 +170,7 @@ def check_network():
 def detect_volume_control():
     """自动检测可用的 ALSA 音量控制，优先 USB 声卡的 Speaker/Headphone/PCM"""
     try:
-        r = subprocess.run("aplay -l", shell=True, capture_output=True, text=True, timeout=5)
+        r = subprocess.run(["aplay", "-l"], shell=False, capture_output=True, text=True, timeout=5)
         cards_output = r.stdout
         usb_card = None
         for line in cards_output.splitlines():
@@ -894,7 +894,10 @@ def init_hardware():
             log(f"GUI 初始化失败，将以无界面模式运行: {e}", "WARNING")
             gui = None
         # 检测摄像头是否可用（通过 fswebcam 能否执行）
-        r = subprocess.run("which fswebcam", shell=True, capture_output=True)
+        # 使用 shutil.which 替代 shell=True 的 which 命令 (CWE-78)
+        import shutil as _shutil
+        _fswebcam = _shutil.which("fswebcam")
+        r = type("R", (), {"returncode": 0 if _fswebcam else 1})()
         state["camera_available"] = r.returncode == 0
         log("硬件初始化完成")
     except Exception as e:
