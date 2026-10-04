@@ -1,5 +1,6 @@
 # 根目录默认忽略所有，逐项放行需纳入版本管理的文件
 /*
+!CONTRIBUTING.md
 
 # ===== Python =====
 __pycache__/
