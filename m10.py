@@ -538,19 +538,26 @@ def trigger_alert(reminder):
 
 
 def alert_loop(tid):
-    while tid in state["active_alerts"]:
-        info = state["active_alerts"][tid]
-        volume = info["volume"]
-        reminder = info["reminder"]
-        drug = reminder.get("medicine_name", "药品")
-        dose = reminder.get("dose", "")
+    """提醒循环：在独立线程中运行，使用锁保护对 active_alerts 的访问防止竞态。"""
+    while True:
+        # 持锁读取快照，防止 confirm_take 删除条目后 KeyError
+        with lock:
+            if tid not in state["active_alerts"]:
+                break
+            info = state["active_alerts"][tid]
+            volume = info["volume"]
+            reminder = info["reminder"]
+            drug = reminder.get("medicine_name", "药品")
+            dose = reminder.get("dose", "")
         msg = f"吃{drug}{dose}"
         buzzer_beep(times=3, duration=0.3)
         tts_speak(msg, volume=volume)
         # 每 10 分钟增大音量
         time.sleep(SNOOZE_MINUTES * 60)
-        if tid in state["active_alerts"]:
-            info["volume"] = min(volume + VOLUME_STEP, VOLUME_MAX)
+        # 持锁更新音量，防止与 confirm_take 删除操作竞态
+        with lock:
+            if tid in state["active_alerts"]:
+                state["active_alerts"][tid]["volume"] = min(volume + VOLUME_STEP, VOLUME_MAX)
 
 
 def confirm_take(tid=None):
@@ -558,9 +565,13 @@ def confirm_take(tid=None):
     photo_path = None
     if state.get("camera_available"):
         photo_path = capture_photo(filename=f"take_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
-    if tid and tid in state["active_alerts"]:
-        reminder = state["active_alerts"][tid]["reminder"]
-        del state["active_alerts"][tid]
+    if tid:
+        with lock:
+            if tid in state["active_alerts"]:
+                reminder = state["active_alerts"][tid]["reminder"]
+                del state["active_alerts"][tid]
+            else:
+                reminder = {}
     else:
         reminder = {}
 
