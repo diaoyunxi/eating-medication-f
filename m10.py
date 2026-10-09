@@ -645,6 +645,8 @@ def recognize_medicine():
 # ============== 余量监测 ==============
 
 def calculate_remaining_days():
+    # 先在锁内完成计算，收集需要告警的药品快照
+    low_stock_items = []
     with lock:
         for m in state["medicines"]:
             total = m.get("remaining", 0)
@@ -656,7 +658,11 @@ def calculate_remaining_days():
             else:
                 m["remaining_days"] = 999
             if m["remaining_days"] < 5:
-                threading.Thread(target=low_stock_alert, args=(m,), daemon=True).start()
+                low_stock_items.append(dict(m))
+    # 释放锁后再启动告警线程，避免锁持有期间线程创建导致锁争用
+    # 使用 dict(m) 快照防止线程访问已释放/变更的字典
+    for m in low_stock_items:
+        threading.Thread(target=low_stock_alert, args=(m,), daemon=True).start()
 
 
 # ============== GUI 更新 ==============
