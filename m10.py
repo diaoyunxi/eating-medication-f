@@ -503,7 +503,11 @@ def check_reminders():
     now_str = now.strftime("%H:%M")
     weekday = now.weekday() + 1
 
-    for r in state["reminders"]:
+    # 在锁内快照 reminders 列表，防止 sync_reminders 并发修改导致迭代期间 RuntimeError (CWE-362)
+    with lock:
+        reminders_snapshot = list(state["reminders"])
+
+    for r in reminders_snapshot:
         tid = r.get("id")
         times = r.get("times", [])
         days = r.get("days", [1, 2, 3, 4, 5, 6, 7])
