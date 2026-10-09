@@ -836,8 +836,11 @@ def face_thread():
 def on_take_button_pressed():
     """P21 已吃药按钮（~A）：仅在吃药提醒时确认已吃药"""
     log("已吃药按钮被按下")
-    if state["active_alerts"]:
-        tid = next(iter(state["active_alerts"]))
+    # 在锁内获取快照，防止 alert_loop 线程并发修改 active_alerts 导致 KeyError (CWE-362)
+    with lock:
+        active = dict(state["active_alerts"])
+    if active:
+        tid = next(iter(active))
         confirm_take(tid)
 
 
