@@ -22,6 +22,9 @@ from datetime import timezone
 import subprocess
 import shlex
 import traceback
+import logging
+
+logger = logging.getLogger(__name__)
 import urllib.request
 import urllib.error
 from pathlib import Path
