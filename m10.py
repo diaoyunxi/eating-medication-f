@@ -48,8 +48,10 @@ LOG_FILE = "/root/medication_local.log"
 PHOTO_DIR = "/root/medication_photos"
 QUEUE_FILE = "/root/medication_log_queue.json"
 
-WIFI_SSID = "TP-LINK_5G_36DB"
-WIFI_PASSWORD = "15756491077"
+# 安全修复：WiFi 凭据从环境变量读取，禁止硬编码到源码中 (CWE-798)
+# 部署时请设置环境变量：WIFI_SSID 和 WIFI_PASSWORD，或通过配置文件覆盖
+WIFI_SSID = os.environ.get("WIFI_SSID", "")
+WIFI_PASSWORD = os.environ.get("WIFI_PASSWORD", "")
 
 # 硬件引脚
 BUZZER_PIN = Pin.P25      # 蜂鸣器
