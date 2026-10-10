@@ -44,10 +44,11 @@ API_DRUG_QUERY = f"{BASE_URL}/api/drug/query"
 API_REFILL = f"{BASE_URL}/api/refill/query"
 API_EMERGENCY = f"{BASE_URL}/api/emergency/notify"
 
-CONFIG_FILE = "/root/medication_config.json"
-LOG_FILE = "/root/medication_local.log"
-PHOTO_DIR = "/root/medication_photos"
-QUEUE_FILE = "/root/medication_log_queue.json"
+MEDICATION_DATA_DIR = os.environ.get("MEDICATION_DATA_DIR", "/root")
+CONFIG_FILE = os.path.join(MEDICATION_DATA_DIR, "medication_config.json")
+LOG_FILE = os.path.join(MEDICATION_DATA_DIR, "medication_local.log")
+PHOTO_DIR = os.path.join(MEDICATION_DATA_DIR, "medication_photos")
+QUEUE_FILE = os.path.join(MEDICATION_DATA_DIR, "medication_log_queue.json")
 
 # 安全修复：WiFi 凭据从环境变量读取，禁止硬编码到源码中 (CWE-798)
 # 部署时请设置环境变量：WIFI_SSID 和 WIFI_PASSWORD，或通过配置文件覆盖
