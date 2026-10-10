@@ -28,7 +28,7 @@ from pathlib import Path
 # 适配 UniHiker 平台
 from unihiker import GUI
 from pinpong.board import Board, Pin
-from dfrobot_huskylensv2 import *
+from dfrobot_huskylensv2 import HuskyLensV2, HuskyLensV2Error
 
 # ============== 配置区 ==============
 BASE_URL = "https://my-website.ccwu.cc/eating-medication/family"
