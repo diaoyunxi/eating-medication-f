@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from m10 import load_config, save_config
 
+
 class TestConfig(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.mkdtemp()
