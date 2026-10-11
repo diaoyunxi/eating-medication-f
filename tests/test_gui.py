@@ -1,12 +1,14 @@
 import unittest
 from unittest.mock import MagicMock, patch
-import m10   # 导入整个模块，通过 m10. 访问全局变量
+
+import m10  # 导入整个模块，通过 m10. 访问全局变量
+
 
 class TestGUI(unittest.TestCase):
     def setUp(self):
         self.gui_mock = MagicMock()
         self.gui_mock.draw_text.return_value = MagicMock()
-        self.patcher_gui = patch('m10.gui', self.gui_mock)
+        self.patcher_gui = patch("m10.gui", self.gui_mock)
         self.patcher_gui.start()
         # 重置 m10 模块中的全局变量（不是测试局部变量）
         m10._gui_mode = "home"
