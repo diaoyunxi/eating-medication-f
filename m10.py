@@ -156,12 +156,20 @@ def save_config(cfg):
 
 
 def connect_wifi(ssid, password):
-    """连接 WiFi，返回是否成功"""
+    """连接 WiFi，返回是否成功。
+
+    安全修复：密码通过 stdin 传入 nmcli --ask 模式，避免在 /proc/*/cmdline 中暴露。
+    """
     if not ssid:
         return False
     try:
-        cmd = ["nmcli", "dev", "wifi", "connect", ssid, "password", password]
-        r = subprocess.run(cmd, shell=False, capture_output=True, text=True, timeout=30)
+        # 使用 --ask 模式通过 stdin 传入密码，防止密码出现在进程列表中
+        cmd = ["nmcli", "--ask", "dev", "wifi", "connect", ssid]
+        prompt_answers = f"Password: {password}\n"
+        r = subprocess.run(
+            cmd, shell=False, input=prompt_answers,
+            capture_output=True, text=True, timeout=30,
+        )
         ok = r.returncode == 0 or "successfully" in r.stdout.lower() or "已激活" in r.stdout
         log(f"WiFi 连接: {r.stdout.strip()}")
         return ok
