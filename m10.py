@@ -173,7 +173,7 @@ def connect_wifi(ssid, password):
 def check_network():
     """检查网络连通性。使用上下文管理器确保 HTTP 连接正确关闭，防止 socket 泄漏。"""
     try:
-        with urllib.request.urlopen("https://my-website.ccwu.cc", timeout=5) as resp:
+        with urllib.request.urlopen("https://www.google.com", timeout=5) as resp:
             # 读取少量数据确认响应有效，然后上下文管理器自动关闭连接
             resp.read(1)
             return resp.status == 200
