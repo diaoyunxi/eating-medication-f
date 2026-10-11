@@ -28,7 +28,7 @@ class TestNetwork(unittest.TestCase):
     def test_register_device_success(self, mock_http):
         mock_http.return_value = {"code": 0, "msg": "ok"}
         result = register_device()
-        self.assertTrue(result)
+        assert result
         mock_http.assert_called_once_with(API_REGISTER, {
             "device_id": "m10_275527387791320",
             "pair_code": "275527387791320",
@@ -46,10 +46,10 @@ class TestNetwork(unittest.TestCase):
             }
         }
         result = sync_reminders()
-        self.assertTrue(result)
+        assert result
         self.assertEqual(len(state["reminders"]), 1)
-        self.assertEqual(state["medicines"][0]["name"], "阿莫西林")
-        self.assertIsNotNone(state["last_sync"])
+        assert state["medicines"][0]["name"] == "阿莫西林"
+        assert state["last_sync"] is not None
 
     @patch('m10.log')
     @patch('m10.http_request')
@@ -57,7 +57,7 @@ class TestNetwork(unittest.TestCase):
     @patch('m10.json.load')
     @patch('m10.json.dump')
     @patch('builtins.open', new_callable=mock_open)
-    def test_flush_local_logs(self, mock_open_func, mock_dump, mock_load, mock_exists, mock_http, mock_log):
+    def test_flush_local_logs(self, _mock_open_func, mock_dump, mock_load, mock_exists, mock_http, _mock_log):
         mock_exists.return_value = True
         mock_load.return_value = [{"event": "test"}]
         mock_http.return_value = {"code": 0}
