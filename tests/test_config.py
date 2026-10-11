@@ -5,11 +5,12 @@ from unittest.mock import patch
 
 from m10 import load_config, save_config
 
+
 class TestConfig(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.mkdtemp()
         self.config_path = os.path.join(self.temp_dir, "config.json")
-        self.patcher = patch('m10.CONFIG_FILE', self.config_path)
+        self.patcher = patch("m10.CONFIG_FILE", self.config_path)
         self.patcher.start()
 
     def tearDown(self):
@@ -29,5 +30,6 @@ class TestConfig(unittest.TestCase):
         loaded = load_config()
         self.assertEqual(loaded, {})
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
