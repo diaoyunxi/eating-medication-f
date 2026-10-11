@@ -24,7 +24,10 @@ class TestUtils(unittest.TestCase):
     @patch('m10.subprocess.run')
     def test_capture_photo_success(self, mock_run):
         mock_run.return_value.returncode = 0
-        with patch('os.path.exists', return_value=True), patch('os.path.getsize', return_value=100):
+        with (
+            patch("os.path.exists", return_value=True),
+            patch("os.path.getsize", return_value=100),
+        ):
             result = capture_photo("test.jpg")
             self.assertEqual(result, os.path.join(self.photo_dir, "test.jpg"))
             mock_run.assert_called_once()
@@ -45,7 +48,10 @@ class TestUtils(unittest.TestCase):
     @patch('m10.subprocess.run')
     def test_set_system_volume(self, mock_run):
         set_system_volume(50)
-        mock_run.assert_called_with(['amixer', 'set', 'PCM', '50%'], shell=False, timeout=5)
+        mock_run.assert_called_with(
+            ['amixer', 'set', 'PCM', '50%'],
+            shell=False, timeout=5,
+        )
 
     @patch('m10.subprocess.run')
     def test_detect_volume_control(self, mock_run):

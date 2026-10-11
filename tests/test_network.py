@@ -41,7 +41,9 @@ class TestNetwork(unittest.TestCase):
         mock_http.return_value = {
             "code": 0,
             "data": {
-                "reminders": [{"id": "r1", "times": ["09:00"], "days": [1,2,3,4,5,6,7]}],
+                "reminders": [
+                    {"id": "r1", "times": ["09:00"], "days": [1,2,3,4,5,6,7]},
+                ],
                 "medicines": [{"id": "m1", "name": "阿莫西林", "remaining": 10}]
             }
         }
@@ -57,7 +59,10 @@ class TestNetwork(unittest.TestCase):
     @patch('m10.json.load')
     @patch('m10.json.dump')
     @patch('builtins.open', new_callable=mock_open)
-    def test_flush_local_logs(self, mock_open_func, mock_dump, mock_load, mock_exists, mock_http, mock_log):
+    def test_flush_local_logs(
+        self, mock_open_func, mock_dump, mock_load,
+        mock_exists, mock_http, mock_log,
+    ):
         mock_exists.return_value = True
         mock_load.return_value = [{"event": "test"}]
         mock_http.return_value = {"code": 0}
