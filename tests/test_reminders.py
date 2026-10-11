@@ -1,12 +1,15 @@
+import datetime
 import unittest
 from unittest.mock import patch
-import datetime
-from datetime import timezone
 
 from m10 import (
-    state, check_fixed_reminders, trigger_alert, confirm_take,
-    reset_fixed_trigger_if_new_day
+    check_fixed_reminders,
+    confirm_take,
+    reset_fixed_trigger_if_new_day,
+    state,
+    trigger_alert,
 )
+
 
 class TestReminders(unittest.TestCase):
     def setUp(self):
@@ -16,7 +19,7 @@ class TestReminders(unittest.TestCase):
 
     @patch('m10.datetime')
     def test_reset_fixed_trigger_if_new_day(self, mock_datetime):
-        mock_now = datetime.datetime(2026, 8, 4, 10, 0, 0, tzinfo=timezone.utc)
+        mock_now = datetime.datetime(2026, 8, 4, 10, 0, 0, tzinfo=datetime.UTC)
         mock_datetime.datetime.now.return_value = mock_now
         state["current_date"] = "2026-08-03"
         reset_fixed_trigger_if_new_day()
@@ -26,7 +29,7 @@ class TestReminders(unittest.TestCase):
     @patch('m10.datetime')
     @patch('m10.trigger_alert')
     def test_check_fixed_reminders_triggers_once_per_day(self, mock_trigger, mock_datetime):
-        mock_now = datetime.datetime(2026, 8, 4, 9, 0, 0, tzinfo=timezone.utc)
+        mock_now = datetime.datetime(2026, 8, 4, 9, 0, 0, tzinfo=datetime.UTC)
         mock_datetime.datetime.now.return_value = mock_now
         mock_datetime.datetime.strftime = lambda self, fmt: "09:00" if fmt == "%H:%M" else "2026-08-04"
         state["current_date"] = "2026-08-04"
@@ -52,7 +55,7 @@ class TestReminders(unittest.TestCase):
     @patch('m10.tts_speak')
     @patch('m10.update_stock')
     def test_confirm_take(self, mock_stock, mock_tts, mock_home, mock_upload, mock_photo):
-        mock_photo.return_value = "/tmp/test_photo.jpg"  # noqa: S108 - test mock path
+        mock_photo.return_value = "/tmp/test_photo.jpg"
         reminder = {
             "id": "t1",
             "user_name": "张三",
@@ -63,7 +66,7 @@ class TestReminders(unittest.TestCase):
         }
         state["active_alerts"]["t1"] = {
             "reminder": reminder,
-            "started_at": datetime.datetime.now(tz=timezone.utc),
+            "started_at": datetime.datetime.now(tz=datetime.UTC),
             "volume": 30
         }
         confirm_take("t1")
