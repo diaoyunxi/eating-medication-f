@@ -376,14 +376,20 @@ def image_to_base64(path):
 def http_request(url, payload=None, timeout=15):
     """封装 urllib，payload 为 dict 时 POST，否则 GET。
     添加 HTTP 状态码校验：仅 2xx 视为成功，非 2xx 记录警告并返回 None。
+    安全校验：仅允许 http/https scheme，防止 file:// 等协议滥用 (CWE-22, S310)。
     """
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    if parsed.scheme not in ('http', 'https'):
+        log(f"拒绝非 HTTP(S) URL scheme: {parsed.scheme!r} — {url}", "ERROR")
+        return None
     try:
         headers = {"Content-Type": "application/json"}
         data = None
         if payload is not None:
             data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         req = urllib.request.Request(url, data=data, headers=headers, method="POST" if data else "GET")
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
             status = resp.status
             if status < 200 or status >= 300:
                 log(f"HTTP 非成功状态码 {status} {url}", "WARNING")
