@@ -227,7 +227,11 @@ def set_system_volume(vol):
         if not _volume_control_cmd:
             _volume_control_cmd = VOLUME_CONTROL if VOLUME_CONTROL else detect_volume_control()
     try:
-        subprocess.run(shlex.split(f"amixer {_volume_control_cmd} {vol}%"), shell=False, timeout=5)
+        vol = int(vol)
+        cmd = ["amixer"] + _volume_control_cmd.split() + [f"{vol}%"]
+        subprocess.run(cmd, shell=False, timeout=5)
+    except ValueError:
+        log(f"音量值无效: {vol}", "WARNING")
     except Exception as e:
         log(f"设置音量失败: {e}", "ERROR")
 
