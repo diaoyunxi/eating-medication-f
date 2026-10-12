@@ -1,9 +1,11 @@
+#!/usr/bin/env python3
 import os
 import tempfile
 import unittest
 from unittest.mock import patch
 
 from m10 import load_config, save_config
+
 
 class TestConfig(unittest.TestCase):
     def setUp(self):

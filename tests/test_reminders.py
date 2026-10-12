@@ -1,12 +1,17 @@
-import unittest
-from unittest.mock import patch
+#!/usr/bin/env python3
 import datetime
+import unittest
 from datetime import timezone
+from unittest.mock import patch
 
 from m10 import (
-    state, check_fixed_reminders, trigger_alert, confirm_take,
-    reset_fixed_trigger_if_new_day
+    check_fixed_reminders,
+    confirm_take,
+    reset_fixed_trigger_if_new_day,
+    state,
+    trigger_alert,
 )
+
 
 class TestReminders(unittest.TestCase):
     def setUp(self):
