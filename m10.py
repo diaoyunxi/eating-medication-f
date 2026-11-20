@@ -157,12 +157,20 @@ def save_config(cfg):
 
 
 def connect_wifi(ssid, password):
-    """连接 WiFi，返回是否成功"""
+    """连接 WiFi，返回是否成功。
+
+    安全修复：密码通过 stdin 传入 nmcli --ask 模式，避免在 /proc/*/cmdline 中暴露。
+    """
     if not ssid:
         return False
     try:
-        cmd = ["nmcli", "dev", "wifi", "connect", ssid, "password", password]
-        r = subprocess.run(cmd, shell=False, capture_output=True, text=True, timeout=30)
+        # 使用 --ask 模式通过 stdin 传入密码，防止密码出现在进程列表中
+        cmd = ["nmcli", "--ask", "dev", "wifi", "connect", ssid]
+        prompt_answers = f"Password: {password}\n"
+        r = subprocess.run(
+            cmd, shell=False, input=prompt_answers,
+            capture_output=True, text=True, timeout=30,
+        )
         ok = r.returncode == 0 or "successfully" in r.stdout.lower() or "已激活" in r.stdout
         log(f"WiFi 连接: {r.stdout.strip()}")
         return ok
@@ -174,7 +182,7 @@ def connect_wifi(ssid, password):
 def check_network():
     """检查网络连通性。使用上下文管理器确保 HTTP 连接正确关闭，防止 socket 泄漏。"""
     try:
-        with urllib.request.urlopen("https://my-website.ccwu.cc", timeout=5) as resp:
+        with urllib.request.urlopen("https://www.google.com", timeout=5) as resp:
             # 读取少量数据确认响应有效，然后上下文管理器自动关闭连接
             resp.read(1)
             return resp.status == 200
@@ -228,7 +236,11 @@ def set_system_volume(vol):
         if not _volume_control_cmd:
             _volume_control_cmd = VOLUME_CONTROL if VOLUME_CONTROL else detect_volume_control()
     try:
-        subprocess.run(shlex.split(f"amixer {_volume_control_cmd} {vol}%"), shell=False, timeout=5)
+        vol = int(vol)
+        cmd = ["amixer"] + _volume_control_cmd.split() + [f"{vol}%"]
+        subprocess.run(cmd, shell=False, timeout=5)
+    except ValueError:
+        log(f"音量值无效: {vol}", "WARNING")
     except Exception as e:
         log(f"设置音量失败: {e}", "ERROR")
 
@@ -377,14 +389,20 @@ def image_to_base64(path):
 def http_request(url, payload=None, timeout=15):
     """封装 urllib，payload 为 dict 时 POST，否则 GET。
     添加 HTTP 状态码校验：仅 2xx 视为成功，非 2xx 记录警告并返回 None。
+    安全校验：仅允许 http/https scheme，防止 file:// 等协议滥用 (CWE-22, S310)。
     """
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    if parsed.scheme not in ('http', 'https'):
+        log(f"拒绝非 HTTP(S) URL scheme: {parsed.scheme!r} — {url}", "ERROR")
+        return None
     try:
         headers = {"Content-Type": "application/json"}
         data = None
         if payload is not None:
             data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         req = urllib.request.Request(url, data=data, headers=headers, method="POST" if data else "GET")
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
             status = resp.status
             if status < 200 or status >= 300:
                 log(f"HTTP 非成功状态码 {status} {url}", "WARNING")
