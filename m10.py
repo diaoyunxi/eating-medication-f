@@ -22,6 +22,7 @@ from datetime import timezone
 import subprocess
 import shlex
 import traceback
+import sys
 import logging
 
 logger = logging.getLogger(__name__)
